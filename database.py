@@ -69,17 +69,24 @@ def insert_cable_record(engine, data):
         conn.execute(query, data)
         conn.commit()
 
-def update_records(engine, updates, ids):
-    """Apply a list of update clauses to the selected record IDs."""
-    if not updates:
+def update_records(engine, updates_dict, ids):
+    """Update records by ID using a fully parameterized query.
+    updates_dict: {column_name: value} — no SQL interpolation of user values."""
+    if not updates_dict or not ids:
         return
 
-    set_clause = ', '.join(updates)
-    id_list = ','.join(map(str, ids))
-    query = f'UPDATE list963 SET {set_clause} WHERE "ID" IN ({id_list})'
+    set_parts = []
+    params = {}
+    for col, val in updates_dict.items():
+        param_key = 'col_' + col.replace(' ', '_')
+        set_parts.append(f'"{col}" = :{param_key}')
+        params[param_key] = val
+
+    params['ids'] = ids
+    query = f'UPDATE list963 SET {", ".join(set_parts)} WHERE "ID" = ANY(:ids)'
 
     with engine.connect() as conn:
-        conn.execute(text(query))
+        conn.execute(text(query), params)
         conn.commit()
 
 def delete_records(engine, ids):
@@ -87,9 +94,6 @@ def delete_records(engine, ids):
     if not ids:
         return
 
-    id_list = ','.join(map(str, ids))
-    query = f'DELETE FROM list963 WHERE "ID" IN ({id_list})'
-
     with engine.connect() as conn:
-        conn.execute(text(query))
+        conn.execute(text('DELETE FROM list963 WHERE "ID" = ANY(:ids)'), {"ids": ids})
         conn.commit()

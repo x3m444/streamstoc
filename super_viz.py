@@ -236,63 +236,60 @@ def show_bulk_edit_form(df_final, selected_rows):
         })
 
 def perform_bulk_update(df_final, selected_rows, edits):
-    """Perform bulk update operation"""
+    """Perform bulk update operation using parameterized queries."""
     ids_upd = df_final.iloc[selected_rows]["ID"].tolist()
-    upd_list = []
+    updates_dict = {}
 
-    # Build update clauses
+    # Text fields
     if edits['nr_lista'].strip():
-        upd_list.append(f'"Nr Lista" = \'{edits["nr_lista"]}\'')
+        updates_dict['Nr Lista'] = edits['nr_lista'].strip()
     if edits['id_lista'].strip():
-        upd_list.append(f'"ID Lista" = \'{edits["id_lista"]}\'')
+        updates_dict['ID Lista'] = edits['id_lista'].strip()
     if edits['locatie'].strip():
-        upd_list.append(f'"Locatie" = \'{edits["locatie"]}\'')
+        updates_dict['Locatie'] = edits['locatie'].strip()
     if edits['dosar'].strip():
-        upd_list.append(f'"Dosar" = \'{edits["dosar"]}\'')
+        updates_dict['Dosar'] = edits['dosar'].strip()
     if edits['tragator'].strip():
-        upd_list.append(f'"Tragator" = \'{edits["tragator"]}\'')
+        updates_dict['Tragator'] = edits['tragator'].strip()
 
     # Numeric fields with validation
     if edits['lungime'].strip():
         try:
-            val = float(edits['lungime'].replace(",", "."))
-            upd_list.append(f'"Lungime" = {val}')
-        except:
+            updates_dict['Lungime'] = float(edits['lungime'].replace(",", "."))
+        except ValueError:
             st.error("⚠️ Lungime invalidă")
+            return
 
     if edits['cabluri'].strip():
         try:
-            val = int(edits['cabluri'])
-            upd_list.append(f'"Nr Cabluri" = {val}')
-        except:
+            updates_dict['Nr Cabluri'] = int(edits['cabluri'])
+        except ValueError:
             st.error("⚠️ Cabluri invalide")
+            return
 
     if edits['ore_rework'].strip():
         try:
-            val = float(edits['ore_rework'].replace(",", "."))
-            upd_list.append(f'"Ore Rework" = {val}')
-        except:
+            updates_dict['Ore Rework'] = float(edits['ore_rework'].replace(",", "."))
+        except ValueError:
             st.error("⚠️ Ore invalid!")
+            return
 
     # Date fields
     if edits['data_creare']:
-        upd_list.append(f'"Data" = \'{edits["data_creare"]}\'')
-
-    # Status fields
-    if edits['status_trimis'] != "Fără modificare":
-        val = "TRUE" if edits['status_trimis'] == "True" else "FALSE"
-        upd_list.append(f'"Trimis" = {val}')
+        updates_dict['Data'] = str(edits['data_creare'])
     if edits['data_trimis']:
-        upd_list.append(f'"Data trimisa" = \'{edits["data_trimis"]}\'')
-
-    if edits['status_rework'] != "Fără modificare":
-        val = "TRUE" if edits['status_rework'] == "True" else "FALSE"
-        upd_list.append(f'"Rework" = {val}')
+        updates_dict['Data trimisa'] = str(edits['data_trimis'])
     if edits['data_rework']:
-        upd_list.append(f'"Data Rework" = \'{edits["data_rework"]}\'')
+        updates_dict['Data Rework'] = str(edits['data_rework'])
 
-    if upd_list:
-        update_records(get_engine(), upd_list, ids_upd)
+    # Boolean status fields
+    if edits['status_trimis'] != "Fără modificare":
+        updates_dict['Trimis'] = edits['status_trimis'] == "True"
+    if edits['status_rework'] != "Fără modificare":
+        updates_dict['Rework'] = edits['status_rework'] == "True"
+
+    if updates_dict:
+        update_records(get_engine(), updates_dict, ids_upd)
         st.success("✅ Actualizat!")
         st.rerun()
 
