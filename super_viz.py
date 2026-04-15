@@ -29,7 +29,8 @@ def show_super_visualization():
         with r1_c3:
             v_id_lista = st.text_input("🆔 ID Listă", value="", placeholder="Ex: 963-A")
         with r1_c4:
-            df_dosare = pd.read_sql('SELECT DISTINCT "Dosar" FROM list963 WHERE "Dosar" IS NOT NULL ORDER BY "Dosar"', get_engine())
+            q_dos = text('SELECT DISTINCT "Dosar" FROM list963 WHERE "Dosar" IS NOT NULL AND "Nava" = :nava ORDER BY "Dosar"')
+            df_dosare = pd.read_sql(q_dos, get_engine(), params={"nava": nava_sel})
             dosar_sel = st.multiselect("📁 Filtru Dosar", df_dosare["Dosar"].tolist())
 
         # Row 2: Location and personnel
