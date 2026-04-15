@@ -98,7 +98,7 @@ def add_export_buttons(df, filename, summary=None):
         min_width = 25 if num_cols <= 5 else 12
 
         for i, col in enumerate(df_export.columns):
-            content_width = max(df_export[col].astype(str).str.len().max(), len(col)) + 4
+            content_width = max(df_export[col].astype(str).str.len().fillna(0).max(), len(col)) + 4
             actual_width = max(content_width, min_width)
             if actual_width > 50:
                 actual_width = 50

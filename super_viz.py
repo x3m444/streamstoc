@@ -76,14 +76,14 @@ def show_super_visualization():
         query += ' AND "ID Lista" LIKE :id_l'
         params["id_l"] = f"%{v_id_lista}%"
     if locatii_sel:
-        query += ' AND "Locatie" IN :locs'
-        params["locs"] = tuple(locatii_sel)
+        query += ' AND "Locatie" = ANY(:locs)'
+        params["locs"] = list(locatii_sel)
     if dosar_sel:
-        query += ' AND "Dosar" IN :dos'
-        params["dos"] = tuple(dosar_sel)
+        query += ' AND "Dosar" = ANY(:dos)'
+        params["dos"] = list(dosar_sel)
     if tragator_sel:
-        query += ' AND "Tragator" IN :trag'
-        params["trag"] = tuple(tragator_sel)
+        query += ' AND "Tragator" = ANY(:trag)'
+        params["trag"] = list(tragator_sel)
 
     # Status filters
     if stare_rework == "Doar Rework":

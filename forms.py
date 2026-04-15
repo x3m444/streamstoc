@@ -134,10 +134,13 @@ def show_expedition_form():
                     return
 
                 try:
-                    from database import update_records
                     ids = df_f["ID"].tolist()
-                    updates = [f'"Trimis"=TRUE', f'"Data trimisa"=\'{data_expediere}\'', f'"Dosar"=\'{nume_dosar}\'']
-                    update_records(engine, updates, ids)
+                    with engine.connect() as conn:
+                        conn.execute(
+                            text('UPDATE list963 SET "Trimis"=TRUE, "Data trimisa"=:data, "Dosar"=:dosar WHERE "ID" = ANY(:ids)'),
+                            {"data": str(data_expediere), "dosar": nume_dosar, "ids": ids}
+                        )
+                        conn.commit()
                     st.success("✅ Liste marcate pentru expediție!")
                     st.rerun()
                 except Exception as e:
