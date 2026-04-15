@@ -6,7 +6,7 @@ import pandas as pd
 from datetime import datetime
 from sqlalchemy import text
 from database import get_engine, insert_cable_record, get_locations_for_ship
-from utils import validate_numeric_input
+from utils import validate_numeric_input, add_export_buttons
 from config import DEFAULT_SHIP, DEFAULT_TRAGATOR, TIMEZONE_OFFSET
 
 def initialize_session_state():
@@ -190,10 +190,14 @@ def show_today_shipments(engine, data_expediere):
             generate_borderou_excel(df_zi, data_expediere)
 
 def generate_borderou_excel(df_zi, data_expediere):
-    """Generate Excel borderou for shipments"""
-    # This would contain the Excel generation logic
-    # For brevity, just showing the structure
-    st.info("Excel generation logic would go here")
+    """Generate Excel borderou for shipments using the shared export utility."""
+    summary = {
+        "METRI": int(df_zi["Lungime"].sum()),
+        "CAB": int(df_zi["Nr Cabluri"].sum()),
+        "LISTE": len(df_zi)
+    }
+    filename = f"Borderou_Expeditie_{data_expediere.strftime('%d-%m-%Y')}"
+    add_export_buttons(df_zi, filename, summary=summary)
 
 
 def show_today_entries(engine, selected_date):
