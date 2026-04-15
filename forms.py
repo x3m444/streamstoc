@@ -203,7 +203,7 @@ def generate_borderou_excel(df_zi, data_expediere):
 def show_today_entries(engine, selected_date):
     """Display today's entries under the data entry form."""
     query = text("""
-        SELECT "Nr Lista", "ID Lista", "Locatie", "Lungime", "Nr Cabluri", "Nava", "Tragator"
+        SELECT "Nr Lista", "Locatie", "Nr Cabluri", "Lungime", "ID Lista"
         FROM list963
         WHERE "Data" = :selected_date
         ORDER BY "Locatie" ASC, "Nr Lista" ASC
@@ -231,11 +231,9 @@ def show_today_entries(engine, selected_date):
         width="stretch",
         column_config={
             "Nr Lista": st.column_config.NumberColumn("Nr Lista", format="%d"),
-            "ID Lista": st.column_config.TextColumn("ID Lista"),
             "Locatie": st.column_config.TextColumn("Locație"),
-            "Lungime": st.column_config.NumberColumn("Lungime", format="%d m"),
             "Nr Cabluri": st.column_config.NumberColumn("Nr Cabluri", format="%d"),
-            "Nava": st.column_config.NumberColumn("Navă", format="%d"),
-            "Tragator": st.column_config.TextColumn("Trăgător")
+            "Lungime": st.column_config.NumberColumn("Lungime", format="%d m"),
+            "ID Lista": st.column_config.TextColumn("ID Lista"),
         }
     )
