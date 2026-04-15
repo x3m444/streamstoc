@@ -225,15 +225,28 @@ def show_today_entries(engine, selected_date):
     st.markdown(f"### 📋 Intrări pentru {selected_date.strftime('%d.%m.%Y')}")
     st.markdown(f"**{total_l} liste** | **{total_m:,.1f} m** | **{total_c} cabluri**")
 
-    st.dataframe(
-        df_today.style.set_properties(**{'text-align': 'center'}),
-        hide_index=True,
-        width="stretch",
-        column_config={
-            "Nr Lista": st.column_config.NumberColumn("Nr Lista", format="%d"),
-            "Locatie": st.column_config.TextColumn("Locație"),
-            "Nr Cabluri": st.column_config.NumberColumn("Nr Cabluri", format="%d"),
-            "Lungime": st.column_config.NumberColumn("Lungime", format="%d m"),
-            "ID Lista": st.column_config.TextColumn("ID Lista"),
-        }
+    df_display = df_today.copy()
+    df_display["Nr Lista"] = df_display["Nr Lista"].astype(int)
+    df_display["Nr Cabluri"] = df_display["Nr Cabluri"].astype(int)
+    df_display["Lungime"] = df_display["Lungime"].astype(int).astype(str) + " m"
+    df_display = df_display.rename(columns={"Locatie": "Locație"})
+
+    headers_html = "".join([
+        f'<th style="text-align:center;padding:8px 12px;background-color:#1a1c23;'
+        f'color:#af7c4c;font-size:12px;font-weight:400;text-transform:uppercase;'
+        f'border-bottom:2px solid #262730;">{col}</th>'
+        for col in df_display.columns
+    ])
+    rows_html = "".join([
+        "<tr>" + "".join([
+            f'<td style="text-align:center;padding:7px 12px;color:#dad4bd;'
+            f'font-size:13px;border-bottom:1px solid #262730;">{val}</td>'
+            for val in row
+        ]) + "</tr>"
+        for _, row in df_display.iterrows()
+    ])
+    st.markdown(
+        f'<table style="width:100%;border-collapse:collapse;background-color:#111111;">'
+        f'<thead><tr>{headers_html}</tr></thead><tbody>{rows_html}</tbody></table>',
+        unsafe_allow_html=True
     )
