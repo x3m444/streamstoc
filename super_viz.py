@@ -40,7 +40,8 @@ def show_super_visualization():
             df_loc = pd.read_sql(q_loc, get_engine(), params={"nava": nava_sel})
             locatii_sel = st.multiselect("📍 Locații", df_loc["Locatie"].tolist())
         with r2_c2:
-            df_tragatori = pd.read_sql('SELECT DISTINCT "Tragator" FROM list963 WHERE "Tragator" IS NOT NULL ORDER BY "Tragator"', get_engine())
+            q_trag = text('SELECT DISTINCT "Tragator" FROM list963 WHERE "Tragator" IS NOT NULL AND "Nava" = :nava ORDER BY "Tragator"')
+            df_tragatori = pd.read_sql(q_trag, get_engine(), params={"nava": nava_sel})
             tragator_sel = st.multiselect("👷 Tragător", df_tragatori["Tragator"].tolist())
         with r2_c3:
             stare_rework = st.selectbox("🔄 Status Rework", ["Toate", "Doar Rework", "Fără Rework"])
