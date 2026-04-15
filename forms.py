@@ -226,7 +226,7 @@ def show_today_entries(engine, selected_date):
     st.markdown(f"**{total_l} liste** | **{total_m:,.1f} m** | **{total_c} cabluri**")
 
     st.dataframe(
-        df_today,
+        df_today.style.set_properties(**{'text-align': 'center'}),
         hide_index=True,
         width="stretch",
         column_config={
