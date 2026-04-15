@@ -83,8 +83,7 @@ def add_export_buttons(df, filename, summary=None):
         num_cols = len(df_export.columns)
         last_col_idx = num_cols - 1
         titlu_curat = filename.replace('_', ' ').upper()
-        worksheet.merge_range(0, 0, 1, last_col_idx, title_fmt)
-        worksheet.write(0, 0, titlu_curat, title_fmt)
+        worksheet.merge_range(0, 0, 1, last_col_idx, titlu_curat, title_fmt)
 
         # Summary section
         if summary:
