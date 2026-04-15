@@ -40,7 +40,7 @@ def add_export_buttons(df, filename, summary=None):
     df_export = df.copy()
     for col in df_export.columns:
         if 'data' in col.lower():
-            df_export[col] = pd.to_datetime(df_export[col], errors='coerce')
+            df_export[col] = pd.to_datetime(df_export[col], errors='coerce', format='mixed')
 
     # Fill missing values so Excel cells are not left as NaN.
     df_export = df_export.fillna(0)
