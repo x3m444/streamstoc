@@ -10,7 +10,6 @@ from utils import add_export_buttons, calculate_summary
 from config import REPORT_TABS
 
 
-@st.cache_data(ttl=30)
 def _fetch_daily():
     return pd.read_sql(text("""
         SELECT "Nr Lista", "Locatie", "Lungime", "Nr Cabluri"
