@@ -9,6 +9,82 @@ from database import get_engine
 from utils import add_export_buttons, calculate_summary
 from config import REPORT_TABS
 
+
+@st.cache_data(ttl=30)
+def _fetch_daily():
+    return pd.read_sql(text("""
+        SELECT "Nr Lista", "Locatie", "Lungime", "Nr Cabluri"
+        FROM list963 WHERE "Data" = CURRENT_DATE
+        ORDER BY "Locatie" ASC, "Nr Lista" ASC
+    """), get_engine())
+
+@st.cache_data(ttl=30)
+def _fetch_weekly():
+    sumar = pd.read_sql(text("""
+        SELECT COALESCE(SUM("Lungime"),0) as m_sapt,
+               COALESCE(SUM("Nr Cabluri"),0) as c_sapt, COUNT(*) as l_sapt
+        FROM list963 WHERE "Data" >= DATE_TRUNC('week', CURRENT_DATE)
+    """), get_engine())
+    zile = pd.read_sql(text("""
+        SELECT "Data", SUM("Lungime") as metri, SUM("Nr Cabluri") as cabluri, COUNT(*) as liste
+        FROM list963 GROUP BY "Data" ORDER BY "Data" DESC
+    """), get_engine())
+    return sumar, zile
+
+@st.cache_data(ttl=30)
+def _fetch_monthly():
+    sumar = pd.read_sql(text("""
+        SELECT COALESCE(SUM("Lungime"),0) as total_m,
+               COALESCE(SUM("Nr Cabluri"),0) as total_c, COUNT(*) as total_l
+        FROM list963 WHERE "Data" >= CURRENT_DATE - INTERVAL '30 days'
+    """), get_engine())
+    saptamani = pd.read_sql(text("""
+        SELECT EXTRACT(YEAR FROM "Data")::INT as an, EXTRACT(WEEK FROM "Data")::INT as nr_sapt,
+               SUM("Lungime") as metri, SUM("Nr Cabluri") as cabluri, COUNT(*) as liste
+        FROM list963 GROUP BY an, nr_sapt ORDER BY an DESC, nr_sapt DESC
+    """), get_engine())
+    return sumar, saptamani
+
+@st.cache_data(ttl=30)
+def _fetch_ship():
+    return pd.read_sql(text("""
+        SELECT "Nr Lista", "ID Lista", "Locatie", "Lungime", "Nr Cabluri",
+               "Data", "Tragator", "Trimis", "Data trimisa", "Nava",
+               "Dosar", "Rework", "Data Rework", "Ore Rework"
+        FROM list963 WHERE "Nava" = 978
+    """), get_engine())
+
+@st.cache_data(ttl=30)
+def _fetch_shipped():
+    return pd.read_sql(text("""
+        SELECT "Nr Lista", "ID Lista", "Locatie", "Lungime", "Nr Cabluri",
+               TO_CHAR("Data trimisa", 'DD.MM.YY') as "Data Trimisă", "Dosar"
+        FROM list963 WHERE "Nava" = 978 AND "Trimis" = true
+    """), get_engine())
+
+@st.cache_data(ttl=30)
+def _fetch_hala():
+    return pd.read_sql(text("""
+        SELECT "Nr Lista", "ID Lista", "Locatie", "Lungime", "Nr Cabluri", "Rework"
+        FROM list963 WHERE "Nava" = 978 AND "Trimis" = false
+    """), get_engine())
+
+@st.cache_data(ttl=30)
+def _fetch_rework():
+    return pd.read_sql(text("""
+        SELECT "Nr Lista", "ID Lista", "Locatie", "Lungime", "Nr Cabluri",
+               TO_CHAR("Data Rework", 'DD.MM.YY') as "Data RWK", "Ore Rework"
+        FROM list963 WHERE "Nava" = 978 AND "Rework" = true
+    """), get_engine())
+
+@st.cache_data(ttl=30)
+def _fetch_all_time():
+    return pd.read_sql(text("""
+        SELECT "Nava" as nava, SUM("Lungime") as lungime_totala,
+               SUM("Nr Cabluri") as cabluri_total, COUNT(*) as numar_liste
+        FROM list963 GROUP BY "Nava" ORDER BY "Nava" ASC
+    """), get_engine())
+
 def show_reports_section():
     """Main reports section with tabs."""
     # This is the root view for all reporting tabs.
@@ -34,21 +110,13 @@ def show_reports_section():
         with tabs[7]:  # All Time
             show_all_time_report()
 
+@st.fragment
 def show_daily_report():
     """Show today's activity report"""
     st.markdown("<h5 style='margin:0px;'>📍 Activitate Curentă</h5>", unsafe_allow_html=True)
 
-    engine = get_engine()
-    query = """
-        SELECT "Nr Lista", "Locatie", "Lungime", "Nr Cabluri"
-        FROM list963
-        WHERE "Data" = CURRENT_DATE
-        ORDER BY "Locatie" ASC, "Nr Lista" ASC
-    """
-
     try:
-        # Read today's records from the database.
-        df = pd.read_sql(text(query), engine)
+        df = _fetch_daily()
 
         if not df.empty:
             # Summarize daily results for UI and export.
@@ -93,38 +161,13 @@ def show_daily_report():
     except Exception as e:
         st.error(f"Eroare la încărcarea datelor: {e}")
 
+@st.fragment
 def show_weekly_report():
     """Show weekly activity report"""
     st.markdown("<h4 style='margin:0px;'>📅 Jurnal Activitate Zilnică</h4>", unsafe_allow_html=True)
 
-    engine = get_engine()
-
-    # Summary query for the current week.
-    query_sumar = """
-        SELECT
-            COALESCE(SUM("Lungime"), 0) as m_sapt,
-            COALESCE(SUM("Nr Cabluri"), 0) as c_sapt,
-            COUNT(*) as l_sapt
-        FROM list963
-        WHERE "Data" >= DATE_TRUNC('week', CURRENT_DATE)
-    """
-
-    # Daily breakdown query for the activity histogram.
-    query_zile = """
-        SELECT
-            "Data",
-            SUM("Lungime") as metri,
-            SUM("Nr Cabluri") as cabluri,
-            COUNT(*) as liste
-        FROM list963
-        GROUP BY "Data"
-        ORDER BY "Data" DESC
-    """
-
     try:
-        # Execute both summary and daily-breakdown queries.
-        df_sumar = pd.read_sql(text(query_sumar), engine)
-        df_zile = pd.read_sql(text(query_zile), engine)
+        df_sumar, df_zile = _fetch_weekly()
 
         # Status bar
         if not df_sumar.empty:
@@ -171,39 +214,13 @@ def show_weekly_report():
     except Exception as e:
         st.error(f"Eroare la procesare: {e}")
 
+@st.fragment
 def show_monthly_report():
     """Show monthly activity report"""
     st.markdown("<h4 style='margin:0px;'>🌙 Istoric pe Săptămâni</h4>", unsafe_allow_html=True)
 
-    engine = get_engine()
-
-    # 30-day summary
-    query_sumar = """
-        SELECT
-            COALESCE(SUM("Lungime"), 0) as total_m,
-            COALESCE(SUM("Nr Cabluri"), 0) as total_c,
-            COUNT(*) as total_l
-        FROM list963
-        WHERE "Data" >= CURRENT_DATE - INTERVAL '30 days'
-    """
-
-    # Weekly breakdown
-    query_saptamani = """
-        SELECT
-            EXTRACT(YEAR FROM "Data")::INT as an,
-            EXTRACT(WEEK FROM "Data")::INT as nr_sapt,
-            SUM("Lungime") as metri,
-            SUM("Nr Cabluri") as cabluri,
-            COUNT(*) as liste
-        FROM list963
-        GROUP BY an, nr_sapt
-        ORDER BY an DESC, nr_sapt DESC
-    """
-
     try:
-        # Execute 30-day summary and weekly breakdown queries.
-        df_sumar = pd.read_sql(text(query_sumar), engine)
-        df_ist = pd.read_sql(text(query_saptamani), engine)
+        df_sumar, df_ist = _fetch_monthly()
 
         # Summary display
         if not df_sumar.empty:
@@ -251,22 +268,13 @@ def show_monthly_report():
     except Exception as e:
         st.error(f"Eroare: {e}")
 
+@st.fragment
 def show_ship_report():
     """Show ship-specific report"""
     st.markdown("<h4 style='margin:0px;'>🚢 Registru Tehnic - Nava 978</h4>", unsafe_allow_html=True)
 
-    engine = get_engine()
-    query = """
-        SELECT
-            "Nr Lista", "ID Lista", "Locatie", "Lungime", "Nr Cabluri",
-            "Data", "Tragator", "Trimis", "Data trimisa", "Nava",
-            "Dosar", "Rework", "Data Rework", "Ore Rework"
-        FROM list963
-        WHERE "Nava" = 978
-    """
-
     try:
-        df = pd.read_sql(text(query), engine)
+        df = _fetch_ship()
 
         if not df.empty:
             # Sort and clean
@@ -338,21 +346,13 @@ def show_ship_report():
     except Exception as e:
         st.error(f"Eroare la procesarea datelor navei: {e}")
 
+@st.fragment
 def show_shipped_report():
     """Show shipped items report"""
     st.markdown("<h4 style='margin:0px;'>📤 Liste Finalizate și Trimise - 978</h4>", unsafe_allow_html=True)
 
-    engine = get_engine()
-    query = """
-        SELECT
-            "Nr Lista", "ID Lista", "Locatie", "Lungime", "Nr Cabluri",
-            TO_CHAR("Data trimisa", 'DD.MM.YY') as "Data Trimisă", "Dosar"
-        FROM list963
-        WHERE "Nava" = 978 AND "Trimis" = true
-    """
-
     try:
-        df = pd.read_sql(text(query), engine)
+        df = _fetch_shipped()
 
         if not df.empty:
             # Sort and clean
@@ -404,19 +404,13 @@ def show_shipped_report():
     except Exception as e:
         st.error(f"Eroare la generarea raportului de trimise: {e}")
 
+@st.fragment
 def show_hala_report():
     """Show hala (warehouse) report"""
     st.markdown("<h4 style='margin:0px;'>🏭 Unități în Hală / Rămase - 978</h4>", unsafe_allow_html=True)
 
-    engine = get_engine()
-    query = """
-        SELECT "Nr Lista", "ID Lista", "Locatie", "Lungime", "Nr Cabluri", "Rework"
-        FROM list963
-        WHERE "Nava" = 978 AND "Trimis" = false
-    """
-
     try:
-        df = pd.read_sql(text(query), engine)
+        df = _fetch_hala()
 
         if not df.empty:
             # Sort
@@ -466,21 +460,13 @@ def show_hala_report():
     except Exception as e:
         st.error(f"Eroare la generarea sumarului din hală: {e}")
 
+@st.fragment
 def show_rework_report():
     """Show rework report"""
     st.markdown("<h4 style='margin:0px;'>🛠️ Registru Intervenții (Rework) - 978</h4>", unsafe_allow_html=True)
 
-    engine = get_engine()
-    query = """
-        SELECT
-            "Nr Lista", "ID Lista", "Locatie", "Lungime", "Nr Cabluri",
-            TO_CHAR("Data Rework", 'DD.MM.YY') as "Data RWK", "Ore Rework"
-        FROM list963
-        WHERE "Nava" = 978 AND "Rework" = true
-    """
-
     try:
-        df = pd.read_sql(text(query), engine)
+        df = _fetch_rework()
 
         if not df.empty:
             # Sort
@@ -543,24 +529,13 @@ def show_rework_report():
     except Exception as e:
         st.error(f"Eroare la generarea raportului rework: {e}")
 
+@st.fragment
 def show_all_time_report():
     """Show all-time summary report"""
     st.markdown("<h4 style='margin:0px;'>🏗️ Sumar Parametri per Navă</h4>", unsafe_allow_html=True)
 
-    engine = get_engine()
-    query = """
-        SELECT
-            "Nava" as nava,
-            SUM("Lungime") as lungime_totala,
-            SUM("Nr Cabluri") as cabluri_total,
-            COUNT(*) as numar_liste
-        FROM list963
-        GROUP BY "Nava"
-        ORDER BY "Nava" ASC
-    """
-
     try:
-        df = pd.read_sql(text(query), engine)
+        df = _fetch_all_time()
 
         if not df.empty:
             # Clean data

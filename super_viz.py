@@ -10,6 +10,27 @@ from sqlalchemy import text
 from database import get_engine, update_records, delete_records
 from utils import add_export_buttons
 
+
+@st.cache_data(ttl=60)
+def _get_nave():
+    return pd.read_sql('SELECT DISTINCT "Nava" FROM list963 ORDER BY "Nava" DESC', get_engine())["Nava"].tolist()
+
+@st.cache_data(ttl=60)
+def _get_locatii(nava):
+    q = text('SELECT DISTINCT "Locatie" FROM list963 WHERE "Nava" = :nava ORDER BY "Locatie"')
+    return pd.read_sql(q, get_engine(), params={"nava": nava})["Locatie"].tolist()
+
+@st.cache_data(ttl=60)
+def _get_dosare(nava):
+    q = text('SELECT DISTINCT "Dosar" FROM list963 WHERE "Dosar" IS NOT NULL AND "Nava" = :nava ORDER BY "Dosar"')
+    return pd.read_sql(q, get_engine(), params={"nava": nava})["Dosar"].tolist()
+
+@st.cache_data(ttl=60)
+def _get_tragatori(nava):
+    q = text('SELECT DISTINCT "Tragator" FROM list963 WHERE "Tragator" IS NOT NULL AND "Nava" = :nava ORDER BY "Tragator"')
+    return pd.read_sql(q, get_engine(), params={"nava": nava})["Tragator"].tolist()
+
+
 def show_super_visualization():
     """Main super visualization interface."""
     # Render the main super visualization panel header.
@@ -20,8 +41,7 @@ def show_super_visualization():
         # Row 1: Ship and basic search
         r1_c1, r1_c2, r1_c3, r1_c4 = st.columns([1, 1, 1, 1.2])
         with r1_c1:
-            df_nave = pd.read_sql('SELECT DISTINCT "Nava" FROM list963 ORDER BY "Nava" DESC', get_engine())
-            lista_nave = df_nave["Nava"].tolist()
+            lista_nave = _get_nave()
             idx_978 = lista_nave.index(978) if 978 in lista_nave else 0
             nava_sel = st.selectbox("🚢 Nava", lista_nave, index=idx_978)
         with r1_c2:
@@ -29,20 +49,14 @@ def show_super_visualization():
         with r1_c3:
             v_id_lista = st.text_input("🆔 ID Listă", value="", placeholder="Ex: 963-A")
         with r1_c4:
-            q_dos = text('SELECT DISTINCT "Dosar" FROM list963 WHERE "Dosar" IS NOT NULL AND "Nava" = :nava ORDER BY "Dosar"')
-            df_dosare = pd.read_sql(q_dos, get_engine(), params={"nava": nava_sel})
-            dosar_sel = st.multiselect("📁 Filtru Dosar", df_dosare["Dosar"].tolist())
+            dosar_sel = st.multiselect("📁 Filtru Dosar", _get_dosare(nava_sel))
 
         # Row 2: Location and personnel
         r2_c1, r2_c2, r2_c3, r2_c4 = st.columns(4)
         with r2_c1:
-            q_loc = text('SELECT DISTINCT "Locatie" FROM list963 WHERE "Nava" = :nava ORDER BY "Locatie"')
-            df_loc = pd.read_sql(q_loc, get_engine(), params={"nava": nava_sel})
-            locatii_sel = st.multiselect("📍 Locații", df_loc["Locatie"].tolist())
+            locatii_sel = st.multiselect("📍 Locații", _get_locatii(nava_sel))
         with r2_c2:
-            q_trag = text('SELECT DISTINCT "Tragator" FROM list963 WHERE "Tragator" IS NOT NULL AND "Nava" = :nava ORDER BY "Tragator"')
-            df_tragatori = pd.read_sql(q_trag, get_engine(), params={"nava": nava_sel})
-            tragator_sel = st.multiselect("👷 Tragător", df_tragatori["Tragator"].tolist())
+            tragator_sel = st.multiselect("👷 Tragător", _get_tragatori(nava_sel))
         with r2_c3:
             stare_rework = st.selectbox("🔄 Status Rework", ["Toate", "Doar Rework", "Fără Rework"])
         with r2_c4:

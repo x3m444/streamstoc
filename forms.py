@@ -7,6 +7,11 @@ from datetime import datetime
 from sqlalchemy import text
 from database import get_engine, insert_cable_record, get_locations_for_ship
 from utils import validate_numeric_input, add_export_buttons
+
+
+@st.cache_data(ttl=60)
+def _get_locatii_form(nava):
+    return get_locations_for_ship(get_engine(), int(nava))
 from config import DEFAULT_SHIP, DEFAULT_TRAGATOR, TIMEZONE_OFFSET
 
 def initialize_session_state():
@@ -41,9 +46,8 @@ def show_data_entry_form():
         st.session_state['last_tragator'] = tragator_val
         st.session_state['last_data'] = data_val
 
-    # Get location suggestions
     engine = get_engine()
-    suggestions = get_locations_for_ship(engine, nava_val)
+    suggestions = _get_locatii_form(nava_val)
 
     # Main form
     with st.form("add_form", clear_on_submit=True):
