@@ -13,7 +13,6 @@ COOKIE_NAME = "gestiune_auth"
 COOKIE_EXPIRY_DAYS = 30
 
 
-@st.cache_resource
 def _get_cookie_manager():
     return stx.CookieManager()
 
