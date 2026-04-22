@@ -201,7 +201,7 @@ def generate_borderou_excel(df_zi, data_expediere):
         "LISTE": len(df_zi)
     }
     filename = f"Borderou_Expeditie_{data_expediere.strftime('%d-%m-%Y')}"
-    add_export_buttons(df_zi, filename, summary=summary)
+    add_export_buttons(df_zi, filename, summary=summary, orientation='portrait')
 
 
 def show_today_entries(engine, selected_date):

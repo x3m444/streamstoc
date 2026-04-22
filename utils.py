@@ -5,7 +5,6 @@ import streamlit as st
 import pandas as pd
 import io
 from datetime import datetime
-import xlsxwriter
 
 def apply_clean_dark_style(df):
     """Apply clean dark theme styling to dataframe"""
@@ -31,7 +30,7 @@ def apply_clean_dark_style(df):
         ]
     }])
 
-def add_export_buttons(df, filename, summary=None):
+def add_export_buttons(df, filename, summary=None, orientation='landscape'):
     """Export a pandas DataFrame to an Excel file and present a download button."""
     buffer_xl = io.BytesIO()
 
@@ -75,7 +74,10 @@ def add_export_buttons(df, filename, summary=None):
         })
 
         # Page setup
-        worksheet.set_landscape()
+        if orientation == 'portrait':
+            worksheet.set_portrait()
+        else:
+            worksheet.set_landscape()
         worksheet.set_paper(9)  # A4
         worksheet.set_margins(0.5, 0.5, 0.5, 0.5)
 
