@@ -76,6 +76,7 @@ def add_export_buttons(df, filename, summary=None, orientation='landscape'):
         # Page setup
         if orientation == 'portrait':
             worksheet.set_portrait()
+            worksheet.fit_to_pages(1, 0)  # incape pe latime, se extinde pe mai multe pagini
         else:
             worksheet.set_landscape()
         worksheet.set_paper(9)  # A4
