@@ -80,6 +80,7 @@ def add_export_buttons(df, filename, summary=None, orientation='landscape'):
             worksheet.set_landscape()
         worksheet.set_paper(9)  # A4
         worksheet.set_margins(0.5, 0.5, 0.5, 0.5)
+        worksheet.set_default_row(22)  # inaltime confortabila pentru randuri de date
 
         # Title
         num_cols = len(df_export.columns)
