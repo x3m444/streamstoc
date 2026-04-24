@@ -35,7 +35,7 @@ def _fetch_monthly():
     sumar = pd.read_sql(text("""
         SELECT COALESCE(SUM("Lungime"),0) as total_m,
                COALESCE(SUM("Nr Cabluri"),0) as total_c, COUNT(*) as total_l
-        FROM list963 WHERE "Data" >= CURRENT_DATE - INTERVAL '30 days'
+        FROM list963 WHERE DATE_TRUNC('month', "Data") = DATE_TRUNC('month', CURRENT_DATE)
     """), get_engine())
     saptamani = pd.read_sql(text("""
         SELECT EXTRACT(YEAR FROM "Data")::INT as an, EXTRACT(WEEK FROM "Data")::INT as nr_sapt,
