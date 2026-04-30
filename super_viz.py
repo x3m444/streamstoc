@@ -15,7 +15,7 @@ ALL_FIELDS = [
 ]
 
 FIELD_TYPES = {
-    "Nava": "numeric", "Nr Lista": "numeric", "ID Lista": "text",
+    "Nava": "numeric", "Nr Lista": "text", "ID Lista": "text",
     "Locatie": "text", "Lungime": "numeric", "Nr Cabluri": "numeric",
     "Dosar": "text", "Tragator": "text", "Data": "date",
     "Data trimisa": "date", "Trimis": "boolean", "Rework": "boolean",
@@ -29,7 +29,7 @@ OPERATORS = {
     "boolean": ["= True", "= False"]
 }
 
-DEFAULT_COLS = ["Nr Lista", "ID Lista", "Locatie", "Lungime", "Nr Cabluri", "Dosar"]
+DEFAULT_COLS = ["Nr Lista", "ID Lista", "Lungime", "Nr Cabluri", "Data"]
 
 
 # --------------------------------------------------------------------------- #
@@ -129,99 +129,94 @@ def _run_query():
 
 def show_super_visualization():
     _init()
-    st.header("🔭 Interogare Date")
+    st.header("🔭 Super Vizualizare")
 
-    # ── Condiții ──────────────────────────────────────────────────────────── #
-    st.markdown("#### 🔍 Condiții")
-
-    rm_cid = None
-    for cid in list(st.session_state.sv_cond_ids):
-        field = st.session_state.get(f"cf_{cid}", ALL_FIELDS[0])
-        ft    = FIELD_TYPES.get(field, "text")
-        ops   = OPERATORS[ft]
-        cur_op = st.session_state.get(f"co_{cid}", ops[0])
-        if cur_op not in ops:
-            cur_op = ops[0]
-
-        c1, c2, c3, c4 = st.columns([2, 1.5, 2, 0.5])
-        with c1:
-            st.selectbox("Câmp", ALL_FIELDS,
-                         index=ALL_FIELDS.index(field),
-                         key=f"cf_{cid}", label_visibility="collapsed")
-        with c2:
-            st.selectbox("Op", ops,
-                         index=ops.index(cur_op),
-                         key=f"co_{cid}", label_visibility="collapsed")
-        with c3:
-            if ft == "boolean":
-                st.empty()
-            elif ft == "date":
-                st.text_input("Val", placeholder="YYYY-MM-DD",
-                              key=f"cv_{cid}", label_visibility="collapsed")
-            else:
-                st.text_input("Val", placeholder="valoare...",
-                              key=f"cv_{cid}", label_visibility="collapsed")
-        with c4:
-            if st.button("✕", key=f"crm_{cid}"):
-                rm_cid = cid
-
-    if rm_cid is not None:
-        st.session_state.sv_cond_ids.remove(rm_cid)
-        st.rerun()
-
-    if st.button("＋ Adaugă condiție", use_container_width=True):
-        nid = st.session_state.sv_cond_next
-        st.session_state.sv_cond_ids.append(nid)
-        st.session_state.sv_cond_next += 1
-        st.rerun()
-
-    st.divider()
-
-    # ── Coloane vizibile ──────────────────────────────────────────────────── #
-    st.markdown("#### 📋 Coloane vizibile")
-    sel = st.multiselect("Coloane", ALL_FIELDS,
-                         default=st.session_state.sv_cols,
-                         label_visibility="collapsed")
-    st.session_state.sv_cols = sel
-
-    st.divider()
-
-    # ── Sortare ───────────────────────────────────────────────────────────── #
-    st.markdown("#### ↕ Sortare")
-
-    rm_sid = None
-    for sid in list(st.session_state.sv_sort_ids):
-        s1, s2, s3 = st.columns([2.5, 1.5, 0.5])
-        with s1:
-            st.selectbox("Câmp sort", ALL_FIELDS,
-                         index=ALL_FIELDS.index(st.session_state.get(f"sf_{sid}", "Nr Lista")),
-                         key=f"sf_{sid}", label_visibility="collapsed")
-        with s2:
-            st.selectbox("Dir", ["ASC ↑", "DESC ↓"],
-                         key=f"sd_{sid}", label_visibility="collapsed")
-        with s3:
-            if st.button("✕", key=f"srm_{sid}"):
-                rm_sid = sid
-
-    if rm_sid is not None:
-        st.session_state.sv_sort_ids.remove(rm_sid)
-        st.rerun()
-
-    if st.button("＋ Adaugă sortare", use_container_width=True):
-        sid = st.session_state.sv_sort_next
-        st.session_state.sv_sort_ids.append(sid)
-        st.session_state.sv_sort_next += 1
-        st.rerun()
-
-    st.divider()
-
-    # ── Execută ───────────────────────────────────────────────────────────── #
-    if st.button("🔍  EXECUTĂ INTEROGAREA", type="primary", use_container_width=True):
+    # Auto-încarcă date la prima vizită
+    if st.session_state.sv_results is None:
         st.session_state.sv_results = _run_query()
 
+    # ── Query builder în expander ─────────────────────────────────────────── #
+    with st.expander("🔍 Filtre & Interogare avansată", expanded=False):
+
+        st.markdown("**Condiții**")
+        rm_cid = None
+        for cid in list(st.session_state.sv_cond_ids):
+            field = st.session_state.get(f"cf_{cid}", ALL_FIELDS[0])
+            ft    = FIELD_TYPES.get(field, "text")
+            ops   = OPERATORS[ft]
+            cur_op = st.session_state.get(f"co_{cid}", ops[0])
+            if cur_op not in ops:
+                cur_op = ops[0]
+
+            c1, c2, c3, c4 = st.columns([2, 1.5, 2, 0.5])
+            with c1:
+                st.selectbox("Câmp", ALL_FIELDS,
+                             index=ALL_FIELDS.index(field),
+                             key=f"cf_{cid}", label_visibility="collapsed")
+            with c2:
+                st.selectbox("Op", ops,
+                             index=ops.index(cur_op),
+                             key=f"co_{cid}", label_visibility="collapsed")
+            with c3:
+                if ft == "boolean":
+                    st.empty()
+                elif ft == "date":
+                    st.text_input("Val", placeholder="YYYY-MM-DD",
+                                  key=f"cv_{cid}", label_visibility="collapsed")
+                else:
+                    st.text_input("Val", placeholder="valoare...",
+                                  key=f"cv_{cid}", label_visibility="collapsed")
+            with c4:
+                if st.button("✕", key=f"crm_{cid}"):
+                    rm_cid = cid
+
+        if rm_cid is not None:
+            st.session_state.sv_cond_ids.remove(rm_cid)
+            st.rerun()
+
+        if st.button("＋ Adaugă condiție", use_container_width=True):
+            nid = st.session_state.sv_cond_next
+            st.session_state.sv_cond_ids.append(nid)
+            st.session_state.sv_cond_next += 1
+            st.rerun()
+
+        st.markdown("**Coloane vizibile**")
+        sel = st.multiselect("Coloane", ALL_FIELDS,
+                             default=st.session_state.sv_cols,
+                             label_visibility="collapsed")
+        st.session_state.sv_cols = sel
+
+        st.markdown("**Sortare**")
+        rm_sid = None
+        for sid in list(st.session_state.sv_sort_ids):
+            s1, s2, s3 = st.columns([2.5, 1.5, 0.5])
+            with s1:
+                st.selectbox("Câmp sort", ALL_FIELDS,
+                             index=ALL_FIELDS.index(st.session_state.get(f"sf_{sid}", "Nr Lista")),
+                             key=f"sf_{sid}", label_visibility="collapsed")
+            with s2:
+                st.selectbox("Dir", ["ASC ↑", "DESC ↓"],
+                             key=f"sd_{sid}", label_visibility="collapsed")
+            with s3:
+                if st.button("✕", key=f"srm_{sid}"):
+                    rm_sid = sid
+
+        if rm_sid is not None:
+            st.session_state.sv_sort_ids.remove(rm_sid)
+            st.rerun()
+
+        if st.button("＋ Adaugă sortare", use_container_width=True):
+            sid = st.session_state.sv_sort_next
+            st.session_state.sv_sort_ids.append(sid)
+            st.session_state.sv_sort_next += 1
+            st.rerun()
+
+        if st.button("🔍 APLICĂ FILTRELE", type="primary", use_container_width=True):
+            st.session_state.sv_results = _run_query()
+            st.rerun()
+
     # ── Rezultate ─────────────────────────────────────────────────────────── #
-    if st.session_state.sv_results is not None:
-        _show_results(st.session_state.sv_results)
+    _show_results(st.session_state.sv_results)
 
 
 # --------------------------------------------------------------------------- #
