@@ -230,15 +230,26 @@ def _show_results(df):
         st.info("ℹ️ Nicio înregistrare găsită.")
         return
 
-    # Metrics
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Nr. Liste", len(df))
-    if "Lungime" in df.columns:
-        c2.metric("Total Metraj", f"{pd.to_numeric(df['Lungime'], errors='coerce').sum():,.0f} m")
-    if "Nr Cabluri" in df.columns:
-        c3.metric("Total Cabluri", int(pd.to_numeric(df["Nr Cabluri"], errors="coerce").sum()))
-
-    st.markdown("---")
+    # Compact single-row summary
+    total_l = len(df)
+    total_m = f"{pd.to_numeric(df['Lungime'], errors='coerce').sum():,.0f} m" if "Lungime" in df.columns else "—"
+    total_c = int(pd.to_numeric(df["Nr Cabluri"], errors="coerce").sum()) if "Nr Cabluri" in df.columns else "—"
+    st.markdown(f"""
+    <div style="display:flex;gap:8px;flex-wrap:nowrap;margin-bottom:12px;">
+        <div style="flex:1;background:#1a1c23;border-radius:6px;padding:8px 10px;text-align:center;min-width:0;">
+            <div style="color:#808495;font-size:10px;text-transform:uppercase;letter-spacing:.5px;">Liste</div>
+            <div style="color:#00d4ff;font-size:18px;font-weight:bold;">{total_l}</div>
+        </div>
+        <div style="flex:1;background:#1a1c23;border-radius:6px;padding:8px 10px;text-align:center;min-width:0;">
+            <div style="color:#808495;font-size:10px;text-transform:uppercase;letter-spacing:.5px;">Metraj</div>
+            <div style="color:#00d4ff;font-size:18px;font-weight:bold;">{total_m}</div>
+        </div>
+        <div style="flex:1;background:#1a1c23;border-radius:6px;padding:8px 10px;text-align:center;min-width:0;">
+            <div style="color:#808495;font-size:10px;text-transform:uppercase;letter-spacing:.5px;">Cabluri</div>
+            <div style="color:#00d4ff;font-size:18px;font-weight:bold;">{total_c}</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     col_cfg = {
         "ID": None,
