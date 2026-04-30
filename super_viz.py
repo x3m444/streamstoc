@@ -131,6 +131,17 @@ def _run_query():
 
 def show_super_visualization():
     _init()
+    st.markdown("""
+    <style>
+    [data-testid="stHorizontalBlock"] {
+        flex-wrap: nowrap !important;
+        align-items: center;
+    }
+    [data-testid="stHorizontalBlock"] > div {
+        min-width: 0 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     st.header("🔭 Super Vizualizare")
 
     # Auto-încarcă date la prima vizită
