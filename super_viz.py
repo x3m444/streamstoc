@@ -44,8 +44,10 @@ def _init():
         st.session_state["co_0"] = "="
         st.session_state["cv_0"] = "978"
     if "sv_sort_ids" not in st.session_state:
-        st.session_state.sv_sort_ids = []
-        st.session_state.sv_sort_next = 0
+        st.session_state.sv_sort_ids = [0]
+        st.session_state.sv_sort_next = 1
+        st.session_state["sf_0"] = "Nr Lista"
+        st.session_state["sd_0"] = "ASC ↑"
     if "sv_results" not in st.session_state:
         st.session_state.sv_results = None
     if "sv_cols" not in st.session_state:
