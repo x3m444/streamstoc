@@ -1,304 +1,370 @@
 # super_viz.py
-# Super Visualization module with advanced filtering, editing and export.
-# This view gives the user a full search/filter interface and the ability to edit or delete rows.
+# Query builder interface - mobile friendly.
+# Allows building custom queries with dynamic conditions, column selection and sorting.
 
 import streamlit as st
 import pandas as pd
-import io
-from datetime import datetime
 from sqlalchemy import text
 from database import get_engine, update_records, delete_records
 from utils import add_export_buttons
 
+ALL_FIELDS = [
+    "Nava", "Nr Lista", "ID Lista", "Locatie", "Lungime",
+    "Nr Cabluri", "Dosar", "Tragator", "Data", "Data trimisa",
+    "Trimis", "Rework", "Data Rework", "Ore Rework"
+]
 
-@st.cache_data(ttl=60)
-def _get_nave():
-    return pd.read_sql('SELECT DISTINCT "Nava" FROM list963 ORDER BY "Nava" DESC', get_engine())["Nava"].tolist()
+FIELD_TYPES = {
+    "Nava": "numeric", "Nr Lista": "numeric", "ID Lista": "text",
+    "Locatie": "text", "Lungime": "numeric", "Nr Cabluri": "numeric",
+    "Dosar": "text", "Tragator": "text", "Data": "date",
+    "Data trimisa": "date", "Trimis": "boolean", "Rework": "boolean",
+    "Data Rework": "date", "Ore Rework": "numeric"
+}
 
-@st.cache_data(ttl=60)
-def _get_locatii(nava):
-    q = text('SELECT DISTINCT "Locatie" FROM list963 WHERE "Nava" = :nava ORDER BY "Locatie"')
-    return pd.read_sql(q, get_engine(), params={"nava": nava})["Locatie"].tolist()
+OPERATORS = {
+    "text":    ["conține", "=", "≠"],
+    "numeric": ["=", "≠", ">", "<", "≥", "≤"],
+    "date":    ["=", ">", "<", "≥", "≤"],
+    "boolean": ["= True", "= False"]
+}
 
-@st.cache_data(ttl=60)
-def _get_dosare(nava):
-    q = text('SELECT DISTINCT "Dosar" FROM list963 WHERE "Dosar" IS NOT NULL AND "Nava" = :nava ORDER BY "Dosar"')
-    return pd.read_sql(q, get_engine(), params={"nava": nava})["Dosar"].tolist()
+DEFAULT_COLS = ["Nr Lista", "ID Lista", "Locatie", "Lungime", "Nr Cabluri", "Dosar"]
 
-@st.cache_data(ttl=60)
-def _get_tragatori(nava):
-    q = text('SELECT DISTINCT "Tragator" FROM list963 WHERE "Tragator" IS NOT NULL AND "Nava" = :nava ORDER BY "Tragator"')
-    return pd.read_sql(q, get_engine(), params={"nava": nava})["Tragator"].tolist()
 
+# --------------------------------------------------------------------------- #
+# Session state init                                                            #
+# --------------------------------------------------------------------------- #
+
+def _init():
+    if "sv_cond_ids" not in st.session_state:
+        st.session_state.sv_cond_ids = [0]
+        st.session_state.sv_cond_next = 1
+        st.session_state["cf_0"] = "Nava"
+        st.session_state["co_0"] = "="
+        st.session_state["cv_0"] = "978"
+    if "sv_sort_ids" not in st.session_state:
+        st.session_state.sv_sort_ids = []
+        st.session_state.sv_sort_next = 0
+    if "sv_results" not in st.session_state:
+        st.session_state.sv_results = None
+    if "sv_cols" not in st.session_state:
+        st.session_state.sv_cols = DEFAULT_COLS.copy()
+
+
+# --------------------------------------------------------------------------- #
+# SQL builder                                                                   #
+# --------------------------------------------------------------------------- #
+
+def _cond_to_sql(field, op, val, cid):
+    col = f'"{field}"'
+    p = f"p{cid}"
+    ft = FIELD_TYPES.get(field, "text")
+
+    if op == "conține":
+        return f'{col} ILIKE :{p}', {p: f"%{val}%"}
+    if op in ("= True", "= False"):
+        return f'{col} IS {"TRUE" if op == "= True" else "FALSE"}', {}
+
+    op_map = {"=": "=", "≠": "!=", ">": ">", "<": "<", "≥": ">=", "≤": "<="}
+    sql_op = op_map.get(op, "=")
+
+    if ft == "numeric":
+        try:
+            return f'{col} {sql_op} :{p}', {p: float(val.replace(",", "."))}
+        except (ValueError, AttributeError):
+            return None, {}
+
+    if not val:
+        return None, {}
+    return f'{col} {sql_op} :{p}', {p: val}
+
+
+def _run_query():
+    col_ids   = st.session_state.sv_cond_ids
+    sort_ids  = st.session_state.sv_sort_ids
+    vis_cols  = st.session_state.sv_cols or ALL_FIELDS
+
+    col_sql = ", ".join([f'"{c}"' for c in vis_cols])
+    where_parts, params = [], {}
+
+    for cid in col_ids:
+        field = st.session_state.get(f"cf_{cid}", "Nava")
+        op    = st.session_state.get(f"co_{cid}", "=")
+        val   = st.session_state.get(f"cv_{cid}", "")
+        ft    = FIELD_TYPES.get(field, "text")
+
+        if ft == "boolean" or val:
+            sql_part, p = _cond_to_sql(field, op, val, cid)
+            if sql_part:
+                where_parts.append(sql_part)
+                params.update(p)
+
+    where_sql = f"WHERE {' AND '.join(where_parts)}" if where_parts else ""
+
+    order_parts = []
+    for sid in sort_ids:
+        sf  = st.session_state.get(f"sf_{sid}", "Nr Lista")
+        sd  = st.session_state.get(f"sd_{sid}", "ASC ↑")
+        dir = "ASC" if "ASC" in sd else "DESC"
+        order_parts.append(f'"{sf}" {dir}')
+    order_sql = f"ORDER BY {', '.join(order_parts)}" if order_parts else ""
+
+    query = f'SELECT "ID", {col_sql} FROM list963 {where_sql} {order_sql}'
+
+    try:
+        df = pd.read_sql(text(query), get_engine(), params=params)
+        for dc in ["Data", "Data trimisa", "Data Rework"]:
+            if dc in df.columns:
+                df[dc] = pd.to_datetime(df[dc], errors="coerce")
+        return df
+    except Exception as e:
+        st.error(f"❌ Eroare interogare: {e}")
+        return None
+
+
+# --------------------------------------------------------------------------- #
+# Main view                                                                     #
+# --------------------------------------------------------------------------- #
 
 def show_super_visualization():
-    """Main super visualization interface."""
-    # Render the main super visualization panel header.
-    st.header("🔭 Centru de Comandă & Filtrare Totală")
+    _init()
+    st.header("🔭 Interogare Date")
 
-    # Filtering panel
-    with st.expander("🛠️ Panou de Filtrare și Căutare Rapidă", expanded=True):
-        # Row 1: Ship and basic search
-        r1_c1, r1_c2, r1_c3, r1_c4 = st.columns([1, 1, 1, 1.2])
-        with r1_c1:
-            lista_nave = _get_nave()
-            idx_978 = lista_nave.index(978) if 978 in lista_nave else 0
-            nava_sel = st.selectbox("🚢 Nava", lista_nave, index=idx_978)
-        with r1_c2:
-            v_nr_lista = st.text_input("🔢 Nr. Listă", value="", placeholder="Ex: 001")
-        with r1_c3:
-            v_id_lista = st.text_input("🆔 ID Listă", value="", placeholder="Ex: 963-A")
-        with r1_c4:
-            dosar_sel = st.multiselect("📁 Filtru Dosar", _get_dosare(nava_sel))
+    # ── Condiții ──────────────────────────────────────────────────────────── #
+    st.markdown("#### 🔍 Condiții")
 
-        # Row 2: Location and personnel
-        r2_c1, r2_c2, r2_c3, r2_c4 = st.columns(4)
-        with r2_c1:
-            locatii_sel = st.multiselect("📍 Locații", _get_locatii(nava_sel))
-        with r2_c2:
-            tragator_sel = st.multiselect("👷 Tragător", _get_tragatori(nava_sel))
-        with r2_c3:
-            stare_rework = st.selectbox("🔄 Status Rework", ["Toate", "Doar Rework", "Fără Rework"])
-        with r2_c4:
-            stare_trimis = st.selectbox("📧 Status Expediție", ["Toate", "Trimise", "Netrimise"])
+    rm_cid = None
+    for cid in list(st.session_state.sv_cond_ids):
+        field = st.session_state.get(f"cf_{cid}", ALL_FIELDS[0])
+        ft    = FIELD_TYPES.get(field, "text")
+        ops   = OPERATORS[ft]
+        cur_op = st.session_state.get(f"co_{cid}", ops[0])
+        if cur_op not in ops:
+            cur_op = ops[0]
 
-        # Date filters
-        st.markdown("**📅 Intervale de Timp (Bifează pentru activare)**")
-        f1, f2, f3 = st.columns(3)
-        with f1:
-            usa_data = st.checkbox("Data Creării")
-            d1 = st.date_input("Creare", [], label_visibility="collapsed") if usa_data else None
-        with f2:
-            usa_exp = st.checkbox("Data Expedierii")
-            d2 = st.date_input("Expediere", [], label_visibility="collapsed") if usa_exp else None
-        with f3:
-            usa_rew = st.checkbox("Data Rework")
-            d3 = st.date_input("Rework", [], label_visibility="collapsed") if usa_rew else None
+        c1, c2, c3, c4 = st.columns([2, 1.5, 2, 0.5])
+        with c1:
+            st.selectbox("Câmp", ALL_FIELDS,
+                         index=ALL_FIELDS.index(field),
+                         key=f"cf_{cid}", label_visibility="collapsed")
+        with c2:
+            st.selectbox("Op", ops,
+                         index=ops.index(cur_op),
+                         key=f"co_{cid}", label_visibility="collapsed")
+        with c3:
+            if ft == "boolean":
+                st.empty()
+            elif ft == "date":
+                st.text_input("Val", placeholder="YYYY-MM-DD",
+                              key=f"cv_{cid}", label_visibility="collapsed")
+            else:
+                st.text_input("Val", placeholder="valoare...",
+                              key=f"cv_{cid}", label_visibility="collapsed")
+        with c4:
+            if st.button("✕", key=f"crm_{cid}"):
+                rm_cid = cid
 
-        # Column selection
-        toate_col = ["Nr Lista", "ID Lista", "Locatie", "Lungime", "Nr Cabluri", "Dosar", "Tragator", "Data", "Data trimisa", "Trimis", "Rework", "Data Rework", "Ore Rework"]
-        col_vizibile = st.multiselect("🍱 Coloane vizibile:", options=toate_col, default=["Nr Lista", "ID Lista", "Locatie", "Lungime", "Nr Cabluri", "Dosar"])
+    if rm_cid is not None:
+        st.session_state.sv_cond_ids.remove(rm_cid)
+        st.rerun()
 
-    # Build query
-    # Compose SQL from selected filters and visible columns.
-    col_sql = ", ".join([f'"{c}"' for c in col_vizibile]) if col_vizibile else "*"
-    query = f'SELECT "ID", {col_sql} FROM list963 WHERE "Nava" = :nava'
-    params = {"nava": nava_sel}
+    if st.button("＋ Adaugă condiție", use_container_width=True):
+        nid = st.session_state.sv_cond_next
+        st.session_state.sv_cond_ids.append(nid)
+        st.session_state.sv_cond_next += 1
+        st.rerun()
 
-    if v_nr_lista:
-        query += ' AND "Nr Lista" LIKE :nr_l'
-        params["nr_l"] = f"%{v_nr_lista}%"
-    if v_id_lista:
-        query += ' AND "ID Lista" LIKE :id_l'
-        params["id_l"] = f"%{v_id_lista}%"
-    if locatii_sel:
-        query += ' AND "Locatie" = ANY(:locs)'
-        params["locs"] = list(locatii_sel)
-    if dosar_sel:
-        query += ' AND "Dosar" = ANY(:dos)'
-        params["dos"] = list(dosar_sel)
-    if tragator_sel:
-        query += ' AND "Tragator" = ANY(:trag)'
-        params["trag"] = list(tragator_sel)
+    st.divider()
 
-    # Status filters
-    if stare_rework == "Doar Rework":
-        query += ' AND "Rework" IS TRUE'
-    elif stare_rework == "Fără Rework":
-        query += ' AND "Rework" IS NOT TRUE'
+    # ── Coloane vizibile ──────────────────────────────────────────────────── #
+    st.markdown("#### 📋 Coloane vizibile")
+    sel = st.multiselect("Coloane", ALL_FIELDS,
+                         default=st.session_state.sv_cols,
+                         label_visibility="collapsed")
+    st.session_state.sv_cols = sel
 
-    if stare_trimis == "Trimise":
-        query += ' AND "Trimis" = TRUE'
-    elif stare_trimis == "Netrimise":
-        query += ' AND "Trimis" = FALSE'
+    st.divider()
 
-    # Date filters
-    if usa_data and d1 and len(d1) == 2:
-        query += ' AND "Data" BETWEEN :d1s AND :d1e'
-        params["d1s"], params["d1e"] = d1[0], d1[1]
-    if usa_exp and d2 and len(d2) == 2:
-        query += ' AND "Data trimisa" BETWEEN :d2s AND :d2e'
-        params["d2s"], params["d2e"] = d2[0], d2[1]
-    if usa_rew and d3 and len(d3) == 2:
-        query += ' AND "Data Rework" BETWEEN :d3s AND :d3e'
-        params["d3s"], params["d3e"] = d3[0], d3[1]
+    # ── Sortare ───────────────────────────────────────────────────────────── #
+    st.markdown("#### ↕ Sortare")
 
-    query += ' ORDER BY CAST(NULLIF("Nr Lista", \'\') AS INTEGER) ASC'
+    rm_sid = None
+    for sid in list(st.session_state.sv_sort_ids):
+        s1, s2, s3 = st.columns([2.5, 1.5, 0.5])
+        with s1:
+            st.selectbox("Câmp sort", ALL_FIELDS,
+                         index=ALL_FIELDS.index(st.session_state.get(f"sf_{sid}", "Nr Lista")),
+                         key=f"sf_{sid}", label_visibility="collapsed")
+        with s2:
+            st.selectbox("Dir", ["ASC ↑", "DESC ↓"],
+                         key=f"sd_{sid}", label_visibility="collapsed")
+        with s3:
+            if st.button("✕", key=f"srm_{sid}"):
+                rm_sid = sid
 
-    # Execute query and load results.
-    df_final = pd.read_sql(text(query), get_engine(), params=params)
+    if rm_sid is not None:
+        st.session_state.sv_sort_ids.remove(rm_sid)
+        st.rerun()
 
-    # Results display
-    if not df_final.empty:
-        for date_col in ["Data", "Data trimisa", "Data Rework"]:
-            if date_col in df_final.columns:
-                df_final[date_col] = pd.to_datetime(df_final[date_col], errors='coerce')
+    if st.button("＋ Adaugă sortare", use_container_width=True):
+        sid = st.session_state.sv_sort_next
+        st.session_state.sv_sort_ids.append(sid)
+        st.session_state.sv_sort_next += 1
+        st.rerun()
 
-        c_m = st.columns(3)
-        c_m[0].metric("Nr. Liste", len(df_final))
-        if "Lungime" in df_final.columns:
-            m_sum = pd.to_numeric(df_final['Lungime'], errors='coerce').sum()
-            c_m[1].metric("Total Metraj", f"{m_sum:,.1f} m")
-        if "Nr Cabluri" in df_final.columns:
-            c_sum = pd.to_numeric(df_final['Nr Cabluri'], errors='coerce').sum()
-            c_m[2].metric("Total Cabluri", int(c_sum))
+    st.divider()
 
-        st.markdown("---")
+    # ── Execută ───────────────────────────────────────────────────────────── #
+    if st.button("🔍  EXECUTĂ INTEROGAREA", type="primary", use_container_width=True):
+        st.session_state.sv_results = _run_query()
 
-        # Display the filtered data and enable row selection.
-        event = st.dataframe(
-            df_final,
-            column_config={
-                "ID": None,
-                "Lungime": st.column_config.NumberColumn("Lungime", format="%.1f m"),
-                "Nr Cabluri": st.column_config.NumberColumn("Cabluri", format="%d"),
-                "Ore Rework": st.column_config.NumberColumn("Ore RW", format="%.2f h"),
-                "Trimis": st.column_config.CheckboxColumn("Trimis"),
-                "Rework": st.column_config.CheckboxColumn("Rework"),
-                "Data": st.column_config.DateColumn("Data", format="DD.MM.YYYY"),
-                "Data trimisa": st.column_config.DateColumn("Data Trimis", format="DD.MM.YYYY"),
-                "Data Rework": st.column_config.DateColumn("Data Rework", format="DD.MM.YYYY")
-            },
-            hide_index=True,
-            width="stretch",
-            on_select="rerun",
-            selection_mode="multi-row"
-        )
+    # ── Rezultate ─────────────────────────────────────────────────────────── #
+    if st.session_state.sv_results is not None:
+        _show_results(st.session_state.sv_results)
 
-        selected_rows = event.selection.rows
 
-        if selected_rows:
-            st.info(f"✅ Ai selectat **{len(selected_rows)}** rânduri.")
-            tab_edit, tab_del = st.tabs(["📝 Editare în Masă / Individuală", "🗑️ Ștergere"])
+# --------------------------------------------------------------------------- #
+# Results + edit/delete                                                         #
+# --------------------------------------------------------------------------- #
 
-            with tab_edit:
-                show_bulk_edit_form(df_final, selected_rows)
+def _show_results(df):
+    if df is None or df.empty:
+        st.info("ℹ️ Nicio înregistrare găsită.")
+        return
 
-            with tab_del:
-                show_bulk_delete_form(df_final, selected_rows)
+    # Metrics
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Nr. Liste", len(df))
+    if "Lungime" in df.columns:
+        c2.metric("Total Metraj", f"{pd.to_numeric(df['Lungime'], errors='coerce').sum():,.0f} m")
+    if "Nr Cabluri" in df.columns:
+        c3.metric("Total Cabluri", int(pd.to_numeric(df["Nr Cabluri"], errors="coerce").sum()))
 
-        # Export current filtered view to Excel with summary.
-        if st.button("🖨️ Export Excel"):
-            df_export = df_final.copy()
-            if "ID" in df_export.columns:
-                df_export = df_export.drop(columns=["ID"])
+    st.markdown("---")
 
-            total_m = int(pd.to_numeric(df_export["Lungime"], errors='coerce').sum()) if "Lungime" in df_export.columns else 0
-            total_c = int(pd.to_numeric(df_export["Nr Cabluri"], errors='coerce').sum()) if "Nr Cabluri" in df_export.columns else 0
-            total_l = len(df_export)
-            summary = {"METRI": total_m, "CAB": total_c, "LISTE": total_l}
+    col_cfg = {
+        "ID": None,
+        "Lungime": st.column_config.NumberColumn("Lungime", format="%.0f m"),
+        "Nr Cabluri": st.column_config.NumberColumn("Cabluri", format="%d"),
+        "Ore Rework": st.column_config.NumberColumn("Ore RW", format="%.2f h"),
+        "Trimis": st.column_config.CheckboxColumn("Trimis"),
+        "Rework": st.column_config.CheckboxColumn("Rework"),
+        "Data": st.column_config.DateColumn("Data", format="DD.MM.YYYY"),
+        "Data trimisa": st.column_config.DateColumn("Data Trimis", format="DD.MM.YYYY"),
+        "Data Rework": st.column_config.DateColumn("Data Rework", format="DD.MM.YYYY"),
+    }
 
-            add_export_buttons(df_export, "SuperVizualizare_978", summary=summary)
-    else:
-        st.info(f"ℹ️ Nu există date conform filtrelor.")
+    event = st.dataframe(
+        df, column_config=col_cfg,
+        hide_index=True, width="stretch",
+        on_select="rerun", selection_mode="multi-row"
+    )
+
+    selected = event.selection.rows
+
+    # Export
+    if st.button("📥 Export Excel", use_container_width=True):
+        df_exp = df.drop(columns=["ID"], errors="ignore")
+        total_m = int(pd.to_numeric(df_exp.get("Lungime", pd.Series()), errors="coerce").sum())
+        total_c = int(pd.to_numeric(df_exp.get("Nr Cabluri", pd.Series()), errors="coerce").sum())
+        add_export_buttons(df_exp, "Interogare_Date", summary={"METRI": total_m, "CAB": total_c, "LISTE": len(df_exp)})
+
+    # Edit / Delete
+    if selected:
+        st.info(f"✅ {len(selected)} rânduri selectate.")
+        tab_edit, tab_del = st.tabs(["✏️ Editare", "🗑️ Ștergere"])
+        with tab_edit:
+            show_bulk_edit_form(df, selected)
+        with tab_del:
+            show_bulk_delete_form(df, selected)
+
+
+# --------------------------------------------------------------------------- #
+# Bulk edit / delete (neschimbate functional)                                   #
+# --------------------------------------------------------------------------- #
 
 def show_bulk_edit_form(df_final, selected_rows):
-    """Show bulk edit form"""
     st.write("Completează doar câmpurile pe care vrei să le modifici:")
 
-    # Edit fields
-    e1_c1, e1_c2, e1_c3 = st.columns(3)
-    with e1_c1:
+    e1, e2, e3 = st.columns(3)
+    with e1:
         edit_nr_l = st.text_input("🔢 Nou Nr. Listă")
-    with e1_c2:
+    with e2:
         edit_id_l = st.text_input("🆔 Nou ID Listă")
-    with e1_c3:
+    with e3:
         edit_loc = st.text_input("📍 Nouă Locație")
 
-    e2_c1, e2_c2, e2_c3 = st.columns(3)
-    with e2_c1:
+    e4, e5, e6 = st.columns(3)
+    with e4:
         edit_lungime = st.text_input("📏 Nouă Lungime")
-    with e2_c2:
+    with e5:
         edit_cabluri = st.text_input("🔌 Nou Nr. Cabluri")
-    with e2_c3:
+    with e6:
         edit_d_creare = st.date_input("📅 Nouă Dată Creare", value=None)
 
-    e3_c1, e3_c2, e3_c3 = st.columns(3)
-    with e3_c1:
+    e7, e8 = st.columns(2)
+    with e7:
         edit_dos = st.text_input("📁 Nou Dosar")
-    with e3_c2:
+    with e8:
         edit_trag = st.text_input("👷 Nou Tragător")
 
     st.markdown("---")
-    e4_c1, e4_c2, e4_c3 = st.columns(3)
-    with e4_c1:
+    f1, f2 = st.columns(2)
+    with f1:
         edit_s_trim = st.selectbox("📧 Status Trimis", ["Fără modificare", "True", "False"], key="bu_trim")
-    with e4_c2:
+    with f2:
         edit_d_trim = st.date_input("🚢 Nouă Dată Trimis", value=None)
 
-    e5_c1, e5_c2, e5_c3 = st.columns(3)
-    with e5_c1:
+    g1, g2, g3 = st.columns(3)
+    with g1:
         edit_s_rew = st.selectbox("🔄 Status Rework", ["Fără modificare", "True", "False"], key="bu_rew")
-    with e5_c2:
+    with g2:
         edit_d_rew = st.date_input("🛠️ Nouă Dată Rework", value=None)
-    with e5_c3:
+    with g3:
         edit_ore_rew = st.text_input("⏱️ Ore Rework", placeholder="Ex: 1.5")
 
-    if st.button("💾 SALVEAZĂ MODIFICĂRILE"):
+    if st.button("💾 SALVEAZĂ MODIFICĂRILE", use_container_width=True):
         perform_bulk_update(df_final, selected_rows, {
-            'nr_lista': edit_nr_l,
-            'id_lista': edit_id_l,
-            'locatie': edit_loc,
-            'lungime': edit_lungime,
-            'cabluri': edit_cabluri,
-            'data_creare': edit_d_creare,
-            'dosar': edit_dos,
-            'tragator': edit_trag,
-            'status_trimis': edit_s_trim,
-            'data_trimis': edit_d_trim,
-            'status_rework': edit_s_rew,
-            'data_rework': edit_d_rew,
+            'nr_lista': edit_nr_l, 'id_lista': edit_id_l, 'locatie': edit_loc,
+            'lungime': edit_lungime, 'cabluri': edit_cabluri, 'data_creare': edit_d_creare,
+            'dosar': edit_dos, 'tragator': edit_trag,
+            'status_trimis': edit_s_trim, 'data_trimis': edit_d_trim,
+            'status_rework': edit_s_rew, 'data_rework': edit_d_rew,
             'ore_rework': edit_ore_rew
         })
 
+
 def perform_bulk_update(df_final, selected_rows, edits):
-    """Perform bulk update operation using parameterized queries."""
     ids_upd = df_final.iloc[selected_rows]["ID"].tolist()
     updates_dict = {}
 
-    # Text fields
-    if edits['nr_lista'].strip():
-        updates_dict['Nr Lista'] = edits['nr_lista'].strip()
-    if edits['id_lista'].strip():
-        updates_dict['ID Lista'] = edits['id_lista'].strip()
-    if edits['locatie'].strip():
-        updates_dict['Locatie'] = edits['locatie'].strip()
-    if edits['dosar'].strip():
-        updates_dict['Dosar'] = edits['dosar'].strip()
-    if edits['tragator'].strip():
-        updates_dict['Tragator'] = edits['tragator'].strip()
+    for key, col in [('nr_lista','Nr Lista'),('id_lista','ID Lista'),('locatie','Locatie'),
+                     ('dosar','Dosar'),('tragator','Tragator')]:
+        if edits[key] and edits[key].strip():
+            updates_dict[col] = edits[key].strip()
 
-    # Numeric fields with validation
-    if edits['lungime'].strip():
-        try:
-            updates_dict['Lungime'] = float(edits['lungime'].replace(",", "."))
-        except ValueError:
-            st.error("⚠️ Lungime invalidă")
-            return
+    for key, col in [('lungime','Lungime'),('ore_rework','Ore Rework')]:
+        if edits[key] and edits[key].strip():
+            try:
+                updates_dict[col] = float(edits[key].replace(",", "."))
+            except ValueError:
+                st.error(f"⚠️ Valoare invalidă pentru {col}")
+                return
 
-    if edits['cabluri'].strip():
+    if edits['cabluri'] and edits['cabluri'].strip():
         try:
             updates_dict['Nr Cabluri'] = int(edits['cabluri'])
         except ValueError:
             st.error("⚠️ Cabluri invalide")
             return
 
-    if edits['ore_rework'].strip():
-        try:
-            updates_dict['Ore Rework'] = float(edits['ore_rework'].replace(",", "."))
-        except ValueError:
-            st.error("⚠️ Ore invalid!")
-            return
-
-    # Date fields
     if edits['data_creare']:
         updates_dict['Data'] = str(edits['data_creare'])
     if edits['data_trimis']:
         updates_dict['Data trimisa'] = str(edits['data_trimis'])
     if edits['data_rework']:
         updates_dict['Data Rework'] = str(edits['data_rework'])
-
-    # Boolean status fields
     if edits['status_trimis'] != "Fără modificare":
         updates_dict['Trimis'] = edits['status_trimis'] == "True"
     if edits['status_rework'] != "Fără modificare":
@@ -306,14 +372,15 @@ def perform_bulk_update(df_final, selected_rows, edits):
 
     if updates_dict:
         update_records(get_engine(), updates_dict, ids_upd)
+        st.session_state.sv_results = None
         st.success("✅ Actualizat!")
         st.rerun()
 
+
 def show_bulk_delete_form(df_final, selected_rows):
-    """Show bulk delete confirmation"""
-    st.error("⚠️ Atenție! Ștergerea este definitivă.")
-    if st.checkbox("Confirm ștergerea datelor bifate") and st.button("🚨 EXECUTĂ ȘTERGEREA"):
-        ids_del = df_final.iloc[selected_rows]["ID"].tolist()
-        delete_records(get_engine(), ids_del)
-        st.success("🔥 S-a șters!")
+    st.error("⚠️ Ștergerea este definitivă.")
+    if st.checkbox("Confirm ștergerea") and st.button("🚨 EXECUTĂ ȘTERGEREA", use_container_width=True):
+        delete_records(get_engine(), df_final.iloc[selected_rows]["ID"].tolist())
+        st.session_state.sv_results = None
+        st.success("🔥 Șters!")
         st.rerun()
