@@ -1,57 +1,218 @@
-version: '3.9'
+# =============================================================================
+# docker-compose.yml — Gestiune Cabluri (unified)
+# =============================================================================
+# Switch activ: editează COMPOSE_PROFILES în .env
+#   COMPOSE_PROFILES=streamlit   → rulează aplicația Streamlit
+#   COMPOSE_PROFILES=django      → rulează aplicația Django
+#
+# Infrastructura (traefik, duckdns) rulează mereu, fără profile.
+# Pentru a adăuga o nouă aplicație: adaugă serviciu cu profiles: [nume_app]
+#   și schimbă COMPOSE_PROFILES în .env.
+#
+# Comandă switch:
+#   1. Editează .env → COMPOSE_PROFILES=django (sau streamlit)
+#   2. docker compose up -d --build --remove-orphans
+# =============================================================================
 
 services:
+
+  # ---------------------------------------------------------------------------
+  # TRAEFIK — reverse proxy + SSL (Let's Encrypt via DuckDNS DNS challenge)
+  # Rulează mereu. Dashboard dezactivat (securitate).
+  # HTTP (80) → redirect automat la HTTPS (443).
+  # ---------------------------------------------------------------------------
   traefik:
     image: traefik:v2.11
     container_name: traefik
     restart: unless-stopped
     command:
-      - --api.insecure=true
-      - --log.level=DEBUG
+      - --ping=true
+      - --log.level=INFO
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
       - --providers.docker.network=traefik
+      # HTTP → HTTPS redirect
       - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.web.http.redirections.entrypoint.permanent=true
+      # HTTPS
       - --entrypoints.websecure.address=:443
+      # Let's Encrypt via DuckDNS
       - --certificatesresolvers.myresolver.acme.dnschallenge=true
       - --certificatesresolvers.myresolver.acme.dnschallenge.provider=duckdns
       - --certificatesresolvers.myresolver.acme.email=x3m444@gmail.com
       - --certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json
     ports:
-      - 80:80
-      - 443:443
+      - "80:80"
+      - "443:443"
     environment:
       - DUCKDNS_TOKEN=${DUCKDNS_TOKEN}
     volumes:
       - ./letsencrypt:/letsencrypt
+      # Docker socket read-only — necesar pentru provider; risc minim pe server dedicat
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - default
       - traefik
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.5"
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      # Middleware: security headers (aplicat pe toate app-urile via router label)
+      - "traefik.enable=true"
+      - "traefik.http.middlewares.secheaders.headers.frameDeny=true"
+      - "traefik.http.middlewares.secheaders.headers.browserXssFilter=true"
+      - "traefik.http.middlewares.secheaders.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.secheaders.headers.referrerPolicy=strict-origin-when-cross-origin"
+      - "traefik.http.middlewares.secheaders.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.secheaders.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.secheaders.headers.stsPreload=true"
+      # Middleware: rate limiting
+      - "traefik.http.middlewares.ratelimit.ratelimit.average=100"
+      - "traefik.http.middlewares.ratelimit.ratelimit.burst=50"
+      - "traefik.http.middlewares.ratelimit.ratelimit.period=1s"
 
+  # ---------------------------------------------------------------------------
+  # DUCKDNS — actualizează IP-ul dinamic la furnizorul DNS
+  # Rulează mereu. Token din .env (nu hardcodat).
+  # ---------------------------------------------------------------------------
   duckdns:
     image: lscr.io/linuxserver/duckdns:latest
     container_name: duckdns
     restart: unless-stopped
     environment:
       - SUBDOMAINS=incercari
-      - TOKEN=8529aea9-0c83-4e75-a8d1-0df290bb5101
+      - TOKEN=${DUCKDNS_TOKEN}
+      - LOG_FILE=false
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: "0.1"
+    # DuckDNS nu expune port HTTP — verificăm că procesul rulează via exit code
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f duckdns || exit 1"]
+      interval: 5m
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
 
-  streamlit-app:
+  # ---------------------------------------------------------------------------
+  # STREAMLIT — aplicația originală
+  # Activă când COMPOSE_PROFILES=streamlit
+  # ---------------------------------------------------------------------------
+  streamlit:
+    profiles: [streamlit]
     build: .
-    container_name: streamlit_app
+    container_name: stoc_streamlit
     restart: unless-stopped
     networks:
       - traefik
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+        reservations:
+          memory: 128M
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8501/_stcore/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     labels:
       - traefik.enable=true
-      - "traefik.http.routers.streamlit.rule=Host(`streamstoc.incercari.duckdns.org`)"
-      - traefik.http.routers.streamlit.entrypoints=websecure
-      - traefik.http.routers.streamlit.tls.certresolver=myresolver
-      - traefik.http.routers.streamlit.tls.domains[0].main=incercari.duckdns.org
-      - "traefik.http.routers.streamlit.tls.domains[0].sans=*.incercari.duckdns.org"
-      - traefik.http.services.streamlit.loadbalancer.server.port=8501
+      - "traefik.http.routers.stoc.rule=Host(`streamstoc.incercari.duckdns.org`)"
+      - traefik.http.routers.stoc.entrypoints=websecure
+      - traefik.http.routers.stoc.tls.certresolver=myresolver
+      - "traefik.http.routers.stoc.tls.domains[0].main=incercari.duckdns.org"
+      - "traefik.http.routers.stoc.tls.domains[0].sans=*.incercari.duckdns.org"
+      - traefik.http.services.stoc.loadbalancer.server.port=8501
+      - "traefik.http.routers.stoc.middlewares=secheaders,ratelimit"
 
+  # ---------------------------------------------------------------------------
+  # DJANGO — aplicația nouă
+  # Activă când COMPOSE_PROFILES=django
+  # ---------------------------------------------------------------------------
+  django:
+    profiles: [django]
+    build: ./django_app
+    container_name: stoc_django
+    restart: unless-stopped
+    env_file: ./django_app/.env
+    expose:
+      - "8000"
+    networks:
+      - traefik
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+        reservations:
+          memory: 128M
+    # /tmp în memorie — Django/Gunicorn scriu fișiere temporare acolo
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    # Python e disponibil în imagine; curl nu e instalat implicit în slim
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request, sys; r=urllib.request.urlopen('http://localhost:8000/'); sys.exit(0 if r.status < 500 else 1)"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.stoc.rule=Host(`streamstoc.incercari.duckdns.org`)"
+      - traefik.http.routers.stoc.entrypoints=websecure
+      - traefik.http.routers.stoc.tls.certresolver=myresolver
+      - "traefik.http.routers.stoc.tls.domains[0].main=incercari.duckdns.org"
+      - "traefik.http.routers.stoc.tls.domains[0].sans=*.incercari.duckdns.org"
+      - traefik.http.services.stoc.loadbalancer.server.port=8000
+      - "traefik.http.routers.stoc.middlewares=secheaders,ratelimit"
+
+# =============================================================================
+# REȚELE
+# =============================================================================
 networks:
   traefik:
     name: traefik
