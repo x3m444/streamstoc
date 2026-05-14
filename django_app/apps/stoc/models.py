@@ -1,0 +1,23 @@
+from django.db import models
+
+
+class Cable(models.Model):
+    id = models.AutoField(primary_key=True, db_column='ID')
+    nr_lista = models.TextField(null=True, blank=True, db_column='Nr Lista')
+    id_lista = models.TextField(null=True, blank=True, db_column='ID Lista')
+    locatie = models.TextField(null=True, blank=True, db_column='Locatie')
+    lungime = models.FloatField(null=True, blank=True, db_column='Lungime')
+    nr_cabluri = models.IntegerField(null=True, blank=True, db_column='Nr Cabluri')
+    nava = models.IntegerField(null=True, blank=True, db_column='Nava')
+    tragator = models.TextField(null=True, blank=True, db_column='Tragator')
+    data = models.DateField(null=True, blank=True, db_column='Data')
+    trimis = models.BooleanField(null=True, blank=True, default=False, db_column='Trimis')
+    data_trimisa = models.DateField(null=True, blank=True, db_column='Data trimisa')
+    dosar = models.TextField(null=True, blank=True, db_column='Dosar')
+    rework = models.BooleanField(null=True, blank=True, default=False, db_column='Rework')
+    data_rework = models.DateField(null=True, blank=True, db_column='Data Rework')
+    ore_rework = models.FloatField(null=True, blank=True, db_column='Ore Rework')
+
+    class Meta:
+        managed = False
+        db_table = 'list963'

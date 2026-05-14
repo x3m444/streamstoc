@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+{% load stoc_extras %}
+{% block title %}Super Viz{% endblock %}
+{% block nav_superviz %}active{% endblock %}
+
+{% block content %}
+<h5>🔭 Super Vizualizare</h5>
+
+<!-- Query Builder -->
+<form method="get" id="queryForm">
+    <div class="card mb-3">
+        <div class="card-body">
+            <h6 class="mb-2">Condiții filtrare</h6>
+            <div id="conditions-container">
+            {% for cond in conditions %}
+            <div class="row g-2 mb-2 condition-row">
+                <div class="col-5 col-md-3">
+                    <select name="cf_{{ forloop.counter0 }}" class="form-select form-select-sm">
+                        {% for f in all_fields %}
+                        <option value="{{ f }}" {% if f == cond.field %}selected{% endif %}>{{ f }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-3 col-md-2">
+                    <select name="co_{{ forloop.counter0 }}" class="form-select form-select-sm">
+                        {% for op in "= ≠ > < ≥ ≤ conține"|split:" " %}
+                        <option value="{{ op }}" {% if op == cond.op %}selected{% endif %}>{{ op }}</option>
+                        {% endfor %}
+                        <option value="= True" {% if cond.op == "= True" %}selected{% endif %}>= True</option>
+                        <option value="= False" {% if cond.op == "= False" %}selected{% endif %}>= False</option>
+                    </select>
+                </div>
+                <div class="col-4 col-md-3">
+                    <input type="text" name="cv_{{ forloop.counter0 }}" class="form-control form-control-sm" value="{{ cond.val }}">
+                </div>
+                <div class="col-auto">
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-cond" {% if forloop.first and conditions|length == 1 %}disabled{% endif %}>✕</button>
+                </div>
+            </div>
+            {% endfor %}
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary mt-1" id="addCond">+ Condiție</button>
+
+            <hr class="my-2">
+            <div class="row g-2">
+                <div class="col-12 col-md-6">
+                    <label class="form-label mb-1" style="font-size:12px;">Coloane vizibile</label>
+                    <div class="d-flex flex-wrap gap-1">
+                        {% for f in all_fields %}
+                        <label class="badge bg-secondary" style="font-weight:normal;cursor:pointer;">
+                            <input type="checkbox" name="vis_col" value="{{ f }}" {% if f in vis_cols %}checked{% endif %} style="margin-right:4px;">{{ f }}
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label mb-1" style="font-size:12px;">Sort câmp</label>
+                    <select name="sort_field" class="form-select form-select-sm">
+                        {% for f in all_fields %}
+                        <option value="{{ f }}" {% if f == sort_field %}selected{% endif %}>{{ f }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label mb-1" style="font-size:12px;">Direcție</label>
+                    <select name="sort_dir" class="form-select form-select-sm">
+                        <option value="ASC" {% if sort_dir == 'ASC' %}selected{% endif %}>ASC</option>
+                        <option value="DESC" {% if sort_dir == 'DESC' %}selected{% endif %}>DESC</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-2">
+                <button type="submit" class="btn btn-warning btn-sm">🔍 Interogare</button>
+            </div>
+        </div>
+    </div>
+</form>
+
+<!-- Results -->
+{% if results %}
+<div class="row g-2 mb-2">
+    <div class="col-4"><div class="summary-card"><div class="label">Liste</div><div class="value">{{ total_l }}</div></div></div>
+    <div class="col-4"><div class="summary-card"><div class="label">Metraj</div><div class="value">{{ total_m }} m</div></div></div>
+    <div class="col-4"><div class="summary-card"><div class="label">Cabluri</div><div class="value">{{ total_c }}</div></div></div>
+</div>
+
+<form method="post" id="bulkForm">
+    {% csrf_token %}
+    <div class="d-flex gap-2 mb-2 flex-wrap">
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="selectAllBtn">☑ Selectează tot</button>
+        <button type="submit" name="action" value="edit" class="btn btn-sm btn-outline-primary">✏ Edit selectate</button>
+        <button type="submit" name="action" value="delete" class="btn btn-sm btn-outline-danger" onclick="return confirm('Ștergi înregistrările selectate?')">🗑 Șterge selectate</button>
+    </div>
+
+    <div class="table-responsive mb-3">
+        <table class="cable-table">
+            <thead>
+                <tr>
+                    <th><input type="checkbox" id="selectAllCb"></th>
+                    {% for h in headers %}<th>{{ h }}</th>{% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+            {% for row in results %}
+            <tr>
+                <td><input type="checkbox" name="selected_ids" value="{{ row.ID }}"></td>
+                {% for h in headers %}<td>{{ row|dict_get:h }}</td>{% endfor %}
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Bulk Edit Panel -->
+    <details class="mb-3">
+        <summary class="btn btn-sm btn-outline-primary">✏ Editare în masă (câmpuri opționale)</summary>
+        <div class="card card-body mt-2">
+            <div class="row g-2">
+                <div class="col-6 col-md-2"><label class="form-label" style="font-size:11px;">Nr Lista</label><input type="text" name="nr_lista" class="form-control form-control-sm"></div>
+                <div class="col-6 col-md-2"><label class="form-label" style="font-size:11px;">ID Lista</label><input type="text" name="id_lista" class="form-control form-control-sm"></div>
+                <div class="col-6 col-md-2"><label class="form-label" style="font-size:11px;">Locatie</label><input type="text" name="locatie" class="form-control form-control-sm"></div>
+                <div class="col-6 col-md-2"><label class="form-label" style="font-size:11px;">Dosar</label><input type="text" name="dosar" class="form-control form-control-sm"></div>
+                <div class="col-6 col-md-2"><label class="form-label" style="font-size:11px;">Tragator</label><input type="text" name="tragator" class="form-control form-control-sm"></div>
+                <div class="col-6 col-md-2"><label class="form-label" style="font-size:11px;">Lungime</label><input type="text" name="lungime" class="form-control form-control-sm"></div>
+                <div class="col-6 col-md-2"><label class="form-label" style="font-size:11px;">Nr Cabluri</label><input type="text" name="nr_cabluri" class="form-control form-control-sm"></div>
+                <div class="col-6 col-md-2"><label class="form-label" style="font-size:11px;">Data</label><input type="date" name="data" class="form-control form-control-sm"></div>
+                <div class="col-6 col-md-2"><label class="form-label" style="font-size:11px;">Data Trimisă</label><input type="date" name="data_trimisa" class="form-control form-control-sm"></div>
+                <div class="col-6 col-md-2"><label class="form-label" style="font-size:11px;">Data Rework</label><input type="date" name="data_rework" class="form-control form-control-sm"></div>
+                <div class="col-6 col-md-2"><label class="form-label" style="font-size:11px;">Ore Rework</label><input type="text" name="ore_rework" class="form-control form-control-sm"></div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label" style="font-size:11px;">Trimis</label>
+                    <select name="trimis" class="form-select form-select-sm">
+                        <option value="">—</option><option value="True">True</option><option value="False">False</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label" style="font-size:11px;">Rework</label>
+                    <select name="rework" class="form-select form-select-sm">
+                        <option value="">—</option><option value="True">True</option><option value="False">False</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </details>
+</form>
+{% elif request.GET %}
+<p class="text-muted">ℹ️ Niciun rezultat pentru condițiile selectate.</p>
+{% else %}
+<p class="text-muted">Setează condițiile și apasă Interogare.</p>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Select all checkbox
+document.getElementById('selectAllCb')?.addEventListener('change', function() {
+    document.querySelectorAll('input[name="selected_ids"]').forEach(cb => cb.checked = this.checked);
+});
+document.getElementById('selectAllBtn')?.addEventListener('click', function() {
+    const cbs = document.querySelectorAll('input[name="selected_ids"]');
+    const allChecked = [...cbs].every(cb => cb.checked);
+    cbs.forEach(cb => cb.checked = !allChecked);
+});
+
+// Add/remove condition rows
+let condCount = {{ conditions|length }};
+
+document.getElementById('addCond')?.addEventListener('click', function() {
+    if (condCount >= 6) return;
+    const container = document.getElementById('conditions-container');
+    const row = document.createElement('div');
+    row.className = 'row g-2 mb-2 condition-row';
+    const fields = {{ all_fields|safe }};
+    const opts = fields.map(f => `<option value="${f}">${f}</option>`).join('');
+    const opOpts = ['=','≠','>','<','≥','≤','conține','= True','= False'].map(o => `<option value="${o}">${o}</option>`).join('');
+    row.innerHTML = `
+        <div class="col-5 col-md-3"><select name="cf_${condCount}" class="form-select form-select-sm">${opts}</select></div>
+        <div class="col-3 col-md-2"><select name="co_${condCount}" class="form-select form-select-sm">${opOpts}</select></div>
+        <div class="col-4 col-md-3"><input type="text" name="cv_${condCount}" class="form-control form-control-sm"></div>
+        <div class="col-auto"><button type="button" class="btn btn-sm btn-outline-danger remove-cond">✕</button></div>`;
+    container.appendChild(row);
+    condCount++;
+    updateRemoveButtons();
+});
+
+document.getElementById('conditions-container')?.addEventListener('click', function(e) {
+    if (e.target.classList.contains('remove-cond')) {
+        e.target.closest('.condition-row').remove();
+        renumberConditions();
+        updateRemoveButtons();
+    }
+});
+
+function renumberConditions() {
+    document.querySelectorAll('.condition-row').forEach((row, i) => {
+        row.querySelector('[name^="cf_"]').name = `cf_${i}`;
+        row.querySelector('[name^="co_"]').name = `co_${i}`;
+        row.querySelector('[name^="cv_"]').name = `cv_${i}`;
+    });
+    condCount = document.querySelectorAll('.condition-row').length;
+}
+
+function updateRemoveButtons() {
+    const btns = document.querySelectorAll('.remove-cond');
+    btns.forEach(btn => btn.disabled = btns.length === 1);
+}
+
+// Build cols param from checkboxes on form submit
+document.getElementById('queryForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const checked = [...document.querySelectorAll('input[name="vis_col"]:checked')].map(cb => cb.value);
+    const existing = document.querySelector('input[name="cols"]');
+    if (existing) existing.remove();
+    const hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.name = 'cols';
+    hidden.value = checked.join(',');
+    this.appendChild(hidden);
+    this.submit();
+});
+</script>
+{% endblock %}

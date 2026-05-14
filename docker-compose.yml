@@ -1,0 +1,57 @@
+version: '3.9'
+
+services:
+  traefik:
+    image: traefik:v2.11
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - --api.insecure=true
+      - --log.level=DEBUG
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=traefik
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.myresolver.acme.dnschallenge=true
+      - --certificatesresolvers.myresolver.acme.dnschallenge.provider=duckdns
+      - --certificatesresolvers.myresolver.acme.email=x3m444@gmail.com
+      - --certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json
+    ports:
+      - 80:80
+      - 443:443
+    environment:
+      - DUCKDNS_TOKEN=${DUCKDNS_TOKEN}
+    volumes:
+      - ./letsencrypt:/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - default
+      - traefik
+
+  duckdns:
+    image: lscr.io/linuxserver/duckdns:latest
+    container_name: duckdns
+    restart: unless-stopped
+    environment:
+      - SUBDOMAINS=incercari
+      - TOKEN=8529aea9-0c83-4e75-a8d1-0df290bb5101
+
+  streamlit-app:
+    build: .
+    container_name: streamlit_app
+    restart: unless-stopped
+    networks:
+      - traefik
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.streamlit.rule=Host(`streamstoc.incercari.duckdns.org`)"
+      - traefik.http.routers.streamlit.entrypoints=websecure
+      - traefik.http.routers.streamlit.tls.certresolver=myresolver
+      - traefik.http.routers.streamlit.tls.domains[0].main=incercari.duckdns.org
+      - "traefik.http.routers.streamlit.tls.domains[0].sans=*.incercari.duckdns.org"
+      - traefik.http.services.streamlit.loadbalancer.server.port=8501
+
+networks:
+  traefik:
+    name: traefik

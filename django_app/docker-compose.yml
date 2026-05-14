@@ -1,0 +1,25 @@
+version: '3.9'
+
+services:
+  web:
+    build: .
+    container_name: stoc_django
+    restart: unless-stopped
+    env_file: .env
+    expose:
+      - 8000
+    networks:
+      - traefik
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.stocdjango.rule=Host(`stocdjango.incercari.duckdns.org`)"
+      - traefik.http.routers.stocdjango.entrypoints=websecure
+      - traefik.http.routers.stocdjango.tls.certresolver=myresolver
+      - "traefik.http.routers.stocdjango.tls.domains[0].main=incercari.duckdns.org"
+      - "traefik.http.routers.stocdjango.tls.domains[0].sans=*.incercari.duckdns.org"
+      - traefik.http.services.stocdjango.loadbalancer.server.port=8000
+
+networks:
+  traefik:
+    external: true
+    name: traefik

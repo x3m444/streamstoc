@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+{% block title %}Rapoarte{% endblock %}
+{% block nav_rapoarte %}active{% endblock %}
+
+{% block content %}
+<h5>📊 Rapoarte Gestiune Cabluri</h5>
+
+<ul class="nav nav-tabs mb-3" id="rapoarteTabs">
+    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-azi">Azi</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-sapt">Săptămână</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-luna">Lună</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-nava">Navă</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-trimise">Trimise</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-hala">Hală</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-rework">Rework</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-alltime">All Time</a></li>
+</ul>
+
+<div class="tab-content">
+
+    <!-- AZI -->
+    <div class="tab-pane fade show active" id="tab-azi">
+        <div class="row g-2 mb-3">
+            <div class="col-4"><div class="summary-card"><div class="label">Liste</div><div class="value">{{ azi_sumar.liste }}</div></div></div>
+            <div class="col-4"><div class="summary-card"><div class="label">Metraj</div><div class="value">{{ azi_sumar.metri }} m</div></div></div>
+            <div class="col-4"><div class="summary-card"><div class="label">Cabluri</div><div class="value">{{ azi_sumar.cabluri }}</div></div></div>
+        </div>
+        <a href="{% url 'stoc:export_excel' 'azi' %}" class="btn btn-sm btn-outline-success mb-2">⬇ Excel</a>
+        {% if azi %}
+        <div class="table-responsive">
+            <table class="cable-table">
+                <thead><tr><th>Nr Lista</th><th>Locație</th><th>Lungime</th><th>Cabluri</th></tr></thead>
+                <tbody>
+                {% for r in azi %}
+                <tr>
+                    <td>{{ r.nr_lista }}</td><td>{{ r.locatie }}</td>
+                    <td>{{ r.lungime|floatformat:0 }} m</td><td>{{ r.nr_cabluri }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted">ℹ️ Nicio înregistrare azi.</p>
+        {% endif %}
+    </div>
+
+    <!-- SĂPTĂMÂNĂ -->
+    <div class="tab-pane fade" id="tab-sapt">
+        <div class="row g-2 mb-3">
+            <div class="col-4"><div class="summary-card"><div class="label">Liste</div><div class="value">{{ sapt_sumar.liste }}</div></div></div>
+            <div class="col-4"><div class="summary-card"><div class="label">Metraj</div><div class="value">{{ sapt_sumar.metri }} m</div></div></div>
+            <div class="col-4"><div class="summary-card"><div class="label">Cabluri</div><div class="value">{{ sapt_sumar.cabluri }}</div></div></div>
+        </div>
+        <h6 class="mt-3">Jurnal zilnic</h6>
+        {% if zile %}
+        <div class="table-responsive">
+            <table class="cable-table">
+                <thead><tr><th>Data</th><th>Metraj</th><th>Cabluri</th><th>Liste</th></tr></thead>
+                <tbody>
+                {% for z in zile %}
+                <tr>
+                    <td>{{ z.data }}</td>
+                    <td>{{ z.metri|floatformat:0 }} m</td>
+                    <td>{{ z.cabluri|floatformat:0 }}</td>
+                    <td>{{ z.liste }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted">ℹ️ Nicio înregistrare.</p>
+        {% endif %}
+    </div>
+
+    <!-- LUNĂ -->
+    <div class="tab-pane fade" id="tab-luna">
+        <div class="row g-2 mb-3">
+            <div class="col-4"><div class="summary-card"><div class="label">Liste</div><div class="value">{{ luna_sumar.liste }}</div></div></div>
+            <div class="col-4"><div class="summary-card"><div class="label">Metraj</div><div class="value">{{ luna_sumar.metri }} m</div></div></div>
+            <div class="col-4"><div class="summary-card"><div class="label">Cabluri</div><div class="value">{{ luna_sumar.cabluri }}</div></div></div>
+        </div>
+        <h6 class="mt-3">Istoric pe săptămâni</h6>
+        {% if saptamani %}
+        <div class="table-responsive">
+            <table class="cable-table">
+                <thead><tr><th>An</th><th>Săpt.</th><th>Metraj</th><th>Cabluri</th><th>Liste</th></tr></thead>
+                <tbody>
+                {% for s in saptamani %}
+                <tr>
+                    <td>{{ s.an }}</td><td>{{ s.nr_sapt }}</td>
+                    <td>{{ s.metri|floatformat:0 }} m</td>
+                    <td>{{ s.cabluri|floatformat:0 }}</td>
+                    <td>{{ s.liste }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted">ℹ️ Nicio înregistrare.</p>
+        {% endif %}
+    </div>
+
+    <!-- NAVĂ -->
+    <div class="tab-pane fade" id="tab-nava">
+        <div class="row g-2 mb-3">
+            <div class="col-4"><div class="summary-card"><div class="label">Liste</div><div class="value">{{ nava_sumar.liste }}</div></div></div>
+            <div class="col-4"><div class="summary-card"><div class="label">Metraj</div><div class="value">{{ nava_sumar.metri }} m</div></div></div>
+            <div class="col-4"><div class="summary-card"><div class="label">Cabluri</div><div class="value">{{ nava_sumar.cabluri }}</div></div></div>
+        </div>
+        <a href="{% url 'stoc:export_excel' 'nava' %}" class="btn btn-sm btn-outline-success mb-2">⬇ Excel</a>
+        {% if nava %}
+        <div class="table-responsive">
+            <table class="cable-table">
+                <thead><tr><th>Nr Lista</th><th>ID Lista</th><th>Locație</th><th>Lungime</th><th>Cabluri</th><th>Data</th><th>Tragator</th><th>Trimis</th><th>Dosar</th></tr></thead>
+                <tbody>
+                {% for r in nava %}
+                <tr>
+                    <td>{{ r.nr_lista }}</td><td>{{ r.id_lista }}</td><td>{{ r.locatie }}</td>
+                    <td>{{ r.lungime|floatformat:0 }} m</td><td>{{ r.nr_cabluri }}</td>
+                    <td>{{ r.data }}</td><td>{{ r.tragator }}</td>
+                    <td>{% if r.trimis %}✓{% endif %}</td><td>{{ r.dosar }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted">ℹ️ Nicio înregistrare pentru Nava 978.</p>
+        {% endif %}
+    </div>
+
+    <!-- TRIMISE -->
+    <div class="tab-pane fade" id="tab-trimise">
+        <div class="row g-2 mb-3">
+            <div class="col-4"><div class="summary-card"><div class="label">Liste</div><div class="value">{{ trimise_sumar.liste }}</div></div></div>
+            <div class="col-4"><div class="summary-card"><div class="label">Metraj</div><div class="value">{{ trimise_sumar.metri }} m</div></div></div>
+            <div class="col-4"><div class="summary-card"><div class="label">Cabluri</div><div class="value">{{ trimise_sumar.cabluri }}</div></div></div>
+        </div>
+        <a href="{% url 'stoc:export_excel' 'trimise' %}" class="btn btn-sm btn-outline-success mb-2">⬇ Excel</a>
+        {% if trimise %}
+        <div class="table-responsive">
+            <table class="cable-table">
+                <thead><tr><th>Nr Lista</th><th>ID Lista</th><th>Locație</th><th>Lungime</th><th>Cabluri</th><th>Data Trim.</th><th>Dosar</th></tr></thead>
+                <tbody>
+                {% for r in trimise %}
+                <tr>
+                    <td>{{ r.nr_lista }}</td><td>{{ r.id_lista }}</td><td>{{ r.locatie }}</td>
+                    <td>{{ r.lungime|floatformat:0 }} m</td><td>{{ r.nr_cabluri }}</td>
+                    <td>{{ r.data_trimisa }}</td><td>{{ r.dosar }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted">ℹ️ Nicio listă trimisă.</p>
+        {% endif %}
+    </div>
+
+    <!-- HALĂ -->
+    <div class="tab-pane fade" id="tab-hala">
+        <div class="row g-2 mb-3">
+            <div class="col-4"><div class="summary-card"><div class="label">Liste</div><div class="value">{{ hala_sumar.liste }}</div></div></div>
+            <div class="col-4"><div class="summary-card"><div class="label">Metraj</div><div class="value">{{ hala_sumar.metri }} m</div></div></div>
+            <div class="col-4"><div class="summary-card"><div class="label">Cabluri</div><div class="value">{{ hala_sumar.cabluri }}</div></div></div>
+        </div>
+        <a href="{% url 'stoc:export_excel' 'hala' %}" class="btn btn-sm btn-outline-success mb-2">⬇ Excel</a>
+        {% if hala %}
+        <div class="table-responsive">
+            <table class="cable-table">
+                <thead><tr><th>Nr Lista</th><th>ID Lista</th><th>Locație</th><th>Lungime</th><th>Cabluri</th><th>Rework</th></tr></thead>
+                <tbody>
+                {% for r in hala %}
+                <tr>
+                    <td>{{ r.nr_lista }}</td><td>{{ r.id_lista }}</td><td>{{ r.locatie }}</td>
+                    <td>{{ r.lungime|floatformat:0 }} m</td><td>{{ r.nr_cabluri }}</td>
+                    <td>{% if r.rework %}⚠{% endif %}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted">🎉 Toate listele au fost trimise!</p>
+        {% endif %}
+    </div>
+
+    <!-- REWORK -->
+    <div class="tab-pane fade" id="tab-rework">
+        <div class="row g-2 mb-3">
+            <div class="col-4"><div class="summary-card"><div class="label">Liste</div><div class="value">{{ rework_sumar.liste }}</div></div></div>
+            <div class="col-4"><div class="summary-card"><div class="label">Metraj</div><div class="value">{{ rework_sumar.metri }} m</div></div></div>
+            <div class="col-4"><div class="summary-card"><div class="label">Cabluri</div><div class="value">{{ rework_sumar.cabluri }}</div></div></div>
+        </div>
+        <a href="{% url 'stoc:export_excel' 'rework' %}" class="btn btn-sm btn-outline-success mb-2">⬇ Excel</a>
+        {% if rework %}
+        <div class="table-responsive">
+            <table class="cable-table">
+                <thead><tr><th>Nr Lista</th><th>ID Lista</th><th>Locație</th><th>Lungime</th><th>Cabluri</th><th>Data RW</th><th>Ore RW</th></tr></thead>
+                <tbody>
+                {% for r in rework %}
+                <tr>
+                    <td>{{ r.nr_lista }}</td><td>{{ r.id_lista }}</td><td>{{ r.locatie }}</td>
+                    <td>{{ r.lungime|floatformat:0 }} m</td><td>{{ r.nr_cabluri }}</td>
+                    <td>{{ r.data_rework }}</td><td>{{ r.ore_rework|floatformat:1 }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted">ℹ️ Nicio înregistrare în rework.</p>
+        {% endif %}
+    </div>
+
+    <!-- ALL TIME -->
+    <div class="tab-pane fade" id="tab-alltime">
+        <div class="row g-2 mb-3">
+            <div class="col-4"><div class="summary-card"><div class="label">Total Liste</div><div class="value">{{ all_time_sumar.liste }}</div></div></div>
+            <div class="col-4"><div class="summary-card"><div class="label">Total Metraj</div><div class="value">{{ all_time_sumar.metri }} m</div></div></div>
+            <div class="col-4"><div class="summary-card"><div class="label">Total Cabluri</div><div class="value">{{ all_time_sumar.cabluri }}</div></div></div>
+        </div>
+        {% if all_time %}
+        <div class="table-responsive">
+            <table class="cable-table">
+                <thead><tr><th>Navă</th><th>Metraj Total</th><th>Cabluri Total</th><th>Nr Liste</th></tr></thead>
+                <tbody>
+                {% for r in all_time %}
+                <tr>
+                    <td>{{ r.nava }}</td>
+                    <td>{{ r.lungime_totala|floatformat:0 }} m</td>
+                    <td>{{ r.cabluri_total|floatformat:0 }}</td>
+                    <td>{{ r.numar_liste }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted">ℹ️ Nicio înregistrare.</p>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

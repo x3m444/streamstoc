@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Login — Gestiune Cabluri</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.2/dist/darkly/bootstrap.min.css">
+</head>
+<body class="d-flex align-items-center justify-content-center" style="min-height:100vh; background:#1a1c23;">
+<div class="card" style="width:360px;">
+    <div class="card-body p-4">
+        <h4 class="card-title text-center mb-4">⚡ Gestiune Cabluri</h4>
+        {% if form.errors %}
+            <div class="alert alert-danger">Utilizator sau parolă incorectă.</div>
+        {% endif %}
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label">Utilizator</label>
+                <input type="text" name="username" class="form-control" autofocus required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Parolă</label>
+                <input type="password" name="password" class="form-control" required>
+            </div>
+            <input type="hidden" name="next" value="{{ next }}">
+            <button type="submit" class="btn btn-primary w-100">Intră</button>
+        </form>
+    </div>
+</div>
+</body>
+</html>

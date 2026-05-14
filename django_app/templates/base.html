@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Gestiune Cabluri{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.2/dist/darkly/bootstrap.min.css">
+    <style>
+        body { padding-bottom: 2rem; }
+        .navbar-brand { font-weight: bold; letter-spacing: 1px; }
+        .summary-card { background: #1a1c23; border-radius: 8px; padding: 10px 14px; text-align: center; }
+        .summary-card .label { color: #808495; font-size: 10px; text-transform: uppercase; letter-spacing: .5px; }
+        .summary-card .value { color: #00d4ff; font-size: 20px; font-weight: bold; }
+        table.cable-table { width: 100%; border-collapse: collapse; }
+        table.cable-table th { background: #1a1c23; color: #af7c4c; font-size: 12px; text-transform: uppercase; padding: 8px 10px; }
+        table.cable-table td { padding: 7px 10px; border-bottom: 1px solid #262730; color: #dad4bd; font-size: 13px; }
+        .nav-tabs .nav-link { color: #adb5bd; }
+        .nav-tabs .nav-link.active { color: #fff; }
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="{% url 'stoc:index' %}">⚡ Gestiune Cabluri</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navMenu">
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item"><a class="nav-link {% block nav_index %}{% endblock %}" href="{% url 'stoc:index' %}">📥 Introducere</a></li>
+                <li class="nav-item"><a class="nav-link {% block nav_expeditie %}{% endblock %}" href="{% url 'stoc:expeditie' %}">📦 Expediție</a></li>
+                <li class="nav-item"><a class="nav-link {% block nav_rapoarte %}{% endblock %}" href="{% url 'stoc:rapoarte' %}">📊 Rapoarte</a></li>
+                <li class="nav-item"><a class="nav-link {% block nav_superviz %}{% endblock %}" href="{% url 'stoc:superviz' %}">🔭 Super Viz</a></li>
+            </ul>
+            <ul class="navbar-nav">
+                <li class="nav-item"><a class="nav-link" href="{% url 'logout' %}">{{ user.username }} ↩</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<div class="container-fluid px-3">
+    {% for message in messages %}
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    {% endfor %}
+
+    {% block content %}{% endblock %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

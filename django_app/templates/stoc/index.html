@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Introducere Date{% endblock %}
+{% block nav_index %}active{% endblock %}
+
+{% block content %}
+<h5>📥 Introducere Rapidă Cabluri</h5>
+
+<!-- Setări implicite -->
+<details class="mb-3">
+    <summary class="btn btn-outline-secondary btn-sm">⚙️ Setări (Navă / Trăgător)</summary>
+    <div class="card card-body mt-2">
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="settings">
+            <div class="row g-2">
+                <div class="col-6 col-md-3">
+                    <label class="form-label">Navă</label>
+                    <input type="number" name="nava" class="form-control" value="{{ last_nava }}">
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label">Trăgător</label>
+                    <input type="text" name="tragator" class="form-control" value="{{ last_tragator }}">
+                </div>
+                <div class="col-12 col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-secondary w-100">Salvează</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</details>
+
+<!-- Formular introducere -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="save">
+            <div class="row g-2">
+                <div class="col-6 col-md-2">
+                    <label class="form-label">Nr Lista</label>
+                    <input type="text" name="nr_lista" class="form-control" required>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label">ID Lista</label>
+                    <input type="text" name="id_lista" class="form-control" required>
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label">Locație (alege)</label>
+                    <select name="loc_select" class="form-select">
+                        <option value="">— alege —</option>
+                        {% for loc in locatii %}
+                            <option value="{{ loc }}">{{ loc }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label">Locație nouă (manual)</label>
+                    <input type="text" name="loc_manual" class="form-control" placeholder="Sau scrie locația">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label">Lungime (m)</label>
+                    <input type="text" name="lungime" class="form-control" required>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label">Nr Cabluri</label>
+                    <input type="text" name="nr_cabluri" class="form-control" required>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label">Data</label>
+                    <input type="date" name="data" class="form-control" value="{{ today|date:'Y-m-d' }}">
+                </div>
+                <div class="col-12 col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">🚀 Salvează</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Intrări azi -->
+{% if today_entries %}
+<h6>📋 Intrări pentru {{ today|date:"d.m.Y" }}</h6>
+<div class="row g-2 mb-3">
+    <div class="col-4"><div class="summary-card"><div class="label">Liste</div><div class="value">{{ total_l }}</div></div></div>
+    <div class="col-4"><div class="summary-card"><div class="label">Metraj</div><div class="value">{{ total_m }} m</div></div></div>
+    <div class="col-4"><div class="summary-card"><div class="label">Cabluri</div><div class="value">{{ total_c }}</div></div></div>
+</div>
+<div class="table-responsive">
+    <table class="cable-table">
+        <thead><tr><th>Nr Lista</th><th>ID Lista</th><th>Locație</th><th>Lungime</th><th>Cabluri</th></tr></thead>
+        <tbody>
+        {% for e in today_entries %}
+            <tr>
+                <td>{{ e.nr_lista }}</td>
+                <td>{{ e.id_lista }}</td>
+                <td>{{ e.locatie }}</td>
+                <td>{{ e.lungime|floatformat:0 }} m</td>
+                <td>{{ e.nr_cabluri }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<p class="text-muted">ℹ️ Nicio intrare pentru {{ today|date:"d.m.Y" }}.</p>
+{% endif %}
+{% endblock %}
