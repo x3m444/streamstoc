@@ -1,0 +1,3 @@
+[submodule "djangolotus"]
+	path = djangolotus
+	url = https://github.com/x3m444/djangolotus

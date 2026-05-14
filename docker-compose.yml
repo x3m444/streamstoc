@@ -3,11 +3,14 @@
 # =============================================================================
 # Switch activ: editează COMPOSE_PROFILES în .env (combină cu virgulă)
 #
-#   COMPOSE_PROFILES=streamlit           → Streamlit
-#   COMPOSE_PROFILES=django              → Django
-#   COMPOSE_PROFILES=django,calibre      → Django + Calibre-Web
-#   COMPOSE_PROFILES=django,cops         → Django + COPS
-#   COMPOSE_PROFILES=cops                → doar COPS (fără app stoc)
+#   COMPOSE_PROFILES=streamlit              → Streamlit stoc
+#   COMPOSE_PROFILES=django                 → Django stoc
+#   COMPOSE_PROFILES=lotus                  → doar Lotus restaurant
+#   COMPOSE_PROFILES=django,lotus           → stoc + restaurant
+#   COMPOSE_PROFILES=django,calibre         → stoc + Calibre-Web
+#   COMPOSE_PROFILES=django,cops            → stoc + COPS
+#   COMPOSE_PROFILES=lotus,cops             → restaurant + bibliotecă
+#   COMPOSE_PROFILES=django,lotus,cops      → toate
 #
 # Infrastructura (traefik, duckdns) rulează mereu, fără profile.
 # Configurații persistente în ./docker-configs/<serviciu>/config/
@@ -213,6 +216,53 @@ services:
       - "traefik.http.routers.stoc.tls.domains[0].sans=*.incercari.duckdns.org"
       - traefik.http.services.stoc.loadbalancer.server.port=8000
       - "traefik.http.routers.stoc.middlewares=secheaders,ratelimit"
+
+  # ---------------------------------------------------------------------------
+  # LOTUS — aplicație Django gestiune restaurant (ASGI/daphne, WebSockets)
+  # Activă când COMPOSE_PROFILES include "lotus"
+  # Subdomain: lotus.incercari.duckdns.org
+  # Sursă: submodul git ./djangolotus (github.com/x3m444/djangolotus)
+  # ---------------------------------------------------------------------------
+  lotus:
+    profiles: [lotus]
+    build: ./djangolotus
+    container_name: lotus_app
+    restart: unless-stopped
+    env_file: ./djangolotus/.env
+    expose:
+      - "8000"
+    networks:
+      - traefik
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+        reservations:
+          memory: 128M
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request, sys; r=urllib.request.urlopen('http://localhost:8000/'); sys.exit(0 if r.status < 500 else 1)"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.lotus.rule=Host(`lotus.incercari.duckdns.org`)"
+      - traefik.http.routers.lotus.entrypoints=websecure
+      - traefik.http.routers.lotus.tls.certresolver=myresolver
+      - traefik.http.services.lotus.loadbalancer.server.port=8000
+      - "traefik.http.routers.lotus.middlewares=secheaders,ratelimit"
 
   # ---------------------------------------------------------------------------
   # CALIBRE-WEB — interfață web completă pentru biblioteca Calibre
