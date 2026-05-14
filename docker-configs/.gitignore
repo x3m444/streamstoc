@@ -1,0 +1,11 @@
+# Nu commitem datele generate de containere (baze de date, cache, sesiuni)
+# Structura folderelor e păstrată via .gitkeep
+
+calibre-web/config/*
+!calibre-web/config/.gitkeep
+
+calibre-web/books/*
+!calibre-web/books/.gitkeep
+
+cops/config/*
+!cops/config/.gitkeep

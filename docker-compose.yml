@@ -1,16 +1,20 @@
 # =============================================================================
-# docker-compose.yml — Gestiune Cabluri (unified)
+# docker-compose.yml — Unified services
 # =============================================================================
-# Switch activ: editează COMPOSE_PROFILES în .env
-#   COMPOSE_PROFILES=streamlit   → rulează aplicația Streamlit
-#   COMPOSE_PROFILES=django      → rulează aplicația Django
+# Switch activ: editează COMPOSE_PROFILES în .env (combină cu virgulă)
+#
+#   COMPOSE_PROFILES=streamlit           → Streamlit
+#   COMPOSE_PROFILES=django              → Django
+#   COMPOSE_PROFILES=django,calibre      → Django + Calibre-Web
+#   COMPOSE_PROFILES=django,cops         → Django + COPS
+#   COMPOSE_PROFILES=cops                → doar COPS (fără app stoc)
 #
 # Infrastructura (traefik, duckdns) rulează mereu, fără profile.
-# Pentru a adăuga o nouă aplicație: adaugă serviciu cu profiles: [nume_app]
-#   și schimbă COMPOSE_PROFILES în .env.
+# Configurații persistente în ./docker-configs/<serviciu>/config/
+# Calea spre biblioteca de cărți: BOOKS_PATH în .env
 #
 # Comandă switch:
-#   1. Editează .env → COMPOSE_PROFILES=django (sau streamlit)
+#   1. Editează .env → COMPOSE_PROFILES=...
 #   2. docker compose up -d --build --remove-orphans
 # =============================================================================
 
@@ -209,6 +213,102 @@ services:
       - "traefik.http.routers.stoc.tls.domains[0].sans=*.incercari.duckdns.org"
       - traefik.http.services.stoc.loadbalancer.server.port=8000
       - "traefik.http.routers.stoc.middlewares=secheaders,ratelimit"
+
+  # ---------------------------------------------------------------------------
+  # CALIBRE-WEB — interfață web completă pentru biblioteca Calibre
+  # Activă când COMPOSE_PROFILES include "calibre"
+  # Subdomain: calibre.incercari.duckdns.org
+  # Primă pornire: setează calea /books în UI → /books
+  # ---------------------------------------------------------------------------
+  calibre-web:
+    profiles: [calibre]
+    image: lscr.io/linuxserver/calibre-web:latest
+    container_name: calibre_web
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=Europe/Bucharest
+    volumes:
+      - ./docker-configs/calibre-web/config:/config
+      - ${BOOKS_PATH:-./docker-configs/calibre-web/books}:/books:ro
+    expose:
+      - "8083"
+    networks:
+      - traefik
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+        reservations:
+          memory: 64M
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8083 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.calibre.rule=Host(`calibre.incercari.duckdns.org`)"
+      - traefik.http.routers.calibre.entrypoints=websecure
+      - traefik.http.routers.calibre.tls.certresolver=myresolver
+      - traefik.http.services.calibre.loadbalancer.server.port=8083
+      - "traefik.http.routers.calibre.middlewares=secheaders,ratelimit"
+
+  # ---------------------------------------------------------------------------
+  # COPS — OPDS + web browser PHP, ultra-ușor (~80MB RAM)
+  # Activă când COMPOSE_PROFILES include "cops"
+  # Subdomain: books.incercari.duckdns.org
+  # Config: docker-configs/cops/config/config_local.php (generat automat)
+  # ---------------------------------------------------------------------------
+  cops:
+    profiles: [cops]
+    image: alexandreperez/cops:latest
+    container_name: cops
+    restart: unless-stopped
+    volumes:
+      - ./docker-configs/cops/config:/var/www/html/config
+      - ${BOOKS_PATH:-./docker-configs/calibre-web/books}:/books:ro
+    expose:
+      - "80"
+    networks:
+      - traefik
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+          cpus: "0.3"
+        reservations:
+          memory: 32M
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost/index.php || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.cops.rule=Host(`books.incercari.duckdns.org`)"
+      - traefik.http.routers.cops.entrypoints=websecure
+      - traefik.http.routers.cops.tls.certresolver=myresolver
+      - traefik.http.services.cops.loadbalancer.server.port=80
+      - "traefik.http.routers.cops.middlewares=secheaders,ratelimit"
 
 # =============================================================================
 # REȚELE
