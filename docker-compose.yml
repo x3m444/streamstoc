@@ -321,7 +321,7 @@ services:
   # COPS — OPDS + web browser PHP, ultra-ușor (~80MB RAM)
   # Activă când COMPOSE_PROFILES include "cops"
   # Subdomain: carti.duckdns.org
-  # Config: docker-configs/cops/config/config_local.php (generat automat)
+  # Config: docker-configs/cops/config/ (generat automat de linuxserver)
   # ---------------------------------------------------------------------------
   cops:
     profiles: [cops]
@@ -333,7 +333,7 @@ services:
       - PGID=${PGID:-1000}
       - TZ=Europe/Bucharest
     volumes:
-      - ./docker-configs/cops/config:/var/www/html/config
+      - ./docker-configs/cops/config:/config
       - ${BOOKS_PATH:-./docker-configs/calibre-web/books}:/books:ro
     expose:
       - "80"
