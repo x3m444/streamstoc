@@ -163,7 +163,7 @@ services:
         max-file: "3"
     labels:
       - traefik.enable=true
-      - "traefik.http.routers.stoc.rule=Host(`stoc.incercari.duckdns.org`)"
+      - "traefik.http.routers.stoc.rule=Host(`streamstoc.incercari.duckdns.org`)"
       - traefik.http.routers.stoc.entrypoints=websecure
       - traefik.http.routers.stoc.tls.certresolver=myresolver
       - "traefik.http.routers.stoc.tls.domains[0].main=incercari.duckdns.org"
