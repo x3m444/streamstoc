@@ -137,6 +137,13 @@ services:
     build: .
     container_name: stoc_streamlit
     restart: unless-stopped
+    env_file: .env
+    environment:
+      - DB_USER=${DB_USER}
+      - DB_PASS=${DB_PASS}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${DB_NAME}
     networks:
       - traefik
     security_opt:
@@ -178,7 +185,11 @@ services:
     build: ./django_app
     container_name: stoc_django
     restart: unless-stopped
-    env_file: ./django_app/.env
+    env_file: .env
+    environment:
+      - SECRET_KEY=${DJANGO_SECRET_KEY}
+      - DEBUG=${DJANGO_DEBUG:-False}
+      - ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS}
     expose:
       - "8000"
     networks:
@@ -229,7 +240,12 @@ services:
     build: ./djangolotus
     container_name: lotus_app
     restart: unless-stopped
-    env_file: ./djangolotus/.env
+    env_file: .env
+    environment:
+      - SECRET_KEY=${LOTUS_SECRET_KEY}
+      - DEBUG=${LOTUS_DEBUG:-False}
+      - ALLOWED_HOSTS=${LOTUS_ALLOWED_HOSTS}
+      - AUTH_ENABLED=${LOTUS_AUTH_ENABLED:-True}
     expose:
       - "8000"
     networks:
