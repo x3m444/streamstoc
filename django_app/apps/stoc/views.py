@@ -341,17 +341,18 @@ def expeditie(request):
 def rapoarte(request):
     nava = int(request.session.get('last_nava', DEFAULT_SHIP))
     with connection.cursor() as cursor:
+        today = date.today()
         cursor.execute('''
             SELECT "Nr Lista","Locatie","Lungime","Nr Cabluri"
-            FROM list963 WHERE "Data" = CURRENT_DATE AND "Nava" = %s
+            FROM list963 WHERE "Data" = %s AND "Nava" = %s
             ORDER BY "Locatie" ASC, "Nr Lista" ASC
-        ''', [nava])
+        ''', [today, nava])
         azi = _rows_to_dicts(cursor, ['nr_lista', 'locatie', 'lungime', 'nr_cabluri'])
 
         cursor.execute('''
             SELECT COALESCE(SUM("Lungime"),0), COALESCE(SUM("Nr Cabluri"),0), COUNT(*)
-            FROM list963 WHERE "Data" >= DATE_TRUNC('week', CURRENT_DATE) AND "Nava" = %s
-        ''', [nava])
+            FROM list963 WHERE "Data" >= DATE_TRUNC('week', %s::date) AND "Nava" = %s
+        ''', [today, nava])
         row = cursor.fetchone()
         sapt_sumar = {'metri': int(row[0]), 'cabluri': int(row[1]), 'liste': int(row[2])}
 
@@ -363,8 +364,8 @@ def rapoarte(request):
 
         cursor.execute('''
             SELECT COALESCE(SUM("Lungime"),0), COALESCE(SUM("Nr Cabluri"),0), COUNT(*)
-            FROM list963 WHERE DATE_TRUNC('month',"Data") = DATE_TRUNC('month',CURRENT_DATE) AND "Nava" = %s
-        ''', [nava])
+            FROM list963 WHERE DATE_TRUNC('month',"Data") = DATE_TRUNC('month',%s::date) AND "Nava" = %s
+        ''', [today, nava])
         row = cursor.fetchone()
         luna_sumar = {'metri': int(row[0]), 'cabluri': int(row[1]), 'liste': int(row[2])}
 
@@ -631,7 +632,7 @@ def export_borderou(request):
 def export_excel(request, tip):
     nava = int(request.session.get('last_nava', DEFAULT_SHIP))
     tip_map = {
-        'azi':    (f'Raport_Azi_{nava}',    f'SELECT "Nr Lista","Locatie","Lungime","Nr Cabluri" FROM list963 WHERE "Data" = CURRENT_DATE AND "Nava"=%s ORDER BY "Locatie","Nr Lista"', ['Nr Lista','Locatie','Lungime','Nr Cabluri']),
+        'azi':    (f'Raport_Azi_{nava}',    f'SELECT "Nr Lista","Locatie","Lungime","Nr Cabluri" FROM list963 WHERE "Data" = %s AND "Nava"=%s ORDER BY "Locatie","Nr Lista"', ['Nr Lista','Locatie','Lungime','Nr Cabluri']),
         'nava':   (f'Registru_{nava}',       f'SELECT "Nr Lista","ID Lista","Locatie","Lungime","Nr Cabluri","Data","Tragator","Trimis","Dosar" FROM list963 WHERE "Nava"=%s ORDER BY "Nr Lista"', ['Nr Lista','ID Lista','Locatie','Lungime','Nr Cabluri','Data','Tragator','Trimis','Dosar']),
         'trimise':(f'Liste_Trimise_{nava}',  f'SELECT "Nr Lista","ID Lista","Locatie","Lungime","Nr Cabluri","Data trimisa","Dosar" FROM list963 WHERE "Nava"=%s AND "Trimis"=true ORDER BY "Nr Lista"', ['Nr Lista','ID Lista','Locatie','Lungime','Nr Cabluri','Data trimisa','Dosar']),
         'hala':   (f'Stoc_Hala_{nava}',     f'SELECT "Nr Lista","ID Lista","Locatie","Lungime","Nr Cabluri" FROM list963 WHERE "Nava"=%s AND "Trimis"=false ORDER BY "Nr Lista"', ['Nr Lista','ID Lista','Locatie','Lungime','Nr Cabluri']),
@@ -642,8 +643,9 @@ def export_excel(request, tip):
         return HttpResponse("Export invalid", status=400)
 
     filename, query, cols = tip_map[tip]
+    params = [date.today(), nava] if tip == 'azi' else [nava]
     with connection.cursor() as cursor:
-        cursor.execute(query, [nava])
+        cursor.execute(query, params)
         rows = cursor.fetchall()
 
     # Compute summary: lungime at col index 2 (0-based), nr_cabluri at 3 — works for all tip_map queries
