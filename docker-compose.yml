@@ -190,6 +190,7 @@ services:
       - SECRET_KEY=${DJANGO_SECRET_KEY}
       - DEBUG=${DJANGO_DEBUG:-False}
       - ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS}
+      - TZ=Europe/Bucharest
     expose:
       - "8000"
     networks:
@@ -246,6 +247,7 @@ services:
       - DEBUG=${LOTUS_DEBUG:-False}
       - ALLOWED_HOSTS=${LOTUS_ALLOWED_HOSTS}
       - AUTH_ENABLED=${LOTUS_AUTH_ENABLED:-True}
+      - TZ=Europe/Bucharest
     expose:
       - "8000"
     networks:
