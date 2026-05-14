@@ -50,9 +50,6 @@ services:
       - --certificatesresolvers.myresolver.acme.dnschallenge.provider=duckdns
       - --certificatesresolvers.myresolver.acme.email=x3m444@gmail.com
       - --certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json
-      # Wildcard cert cerut la nivel Traefik — independent de serviciile active
-      - --certificatesresolvers.myresolver.acme.domains[0].main=incercari.duckdns.org
-      - "--certificatesresolvers.myresolver.acme.domains[0].sans=*.incercari.duckdns.org"
     ports:
       - "80:80"
       - "443:443"
