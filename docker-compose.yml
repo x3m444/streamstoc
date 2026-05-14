@@ -7,8 +7,8 @@
 #   COMPOSE_PROFILES=django                 → Django stoc
 #   COMPOSE_PROFILES=lotus                  → doar Lotus restaurant
 #   COMPOSE_PROFILES=django,lotus           → stoc + restaurant
-#   COMPOSE_PROFILES=django,calibre         → stoc + Calibre-Web
-#   COMPOSE_PROFILES=django,cops            → stoc + COPS
+#   COMPOSE_PROFILES=django,calibre         → stoc + Calibre-Web (lectura.duckdns.org)
+#   COMPOSE_PROFILES=django,cops            → stoc + COPS (carti.duckdns.org)
 #   COMPOSE_PROFILES=lotus,cops             → restaurant + bibliotecă
 #   COMPOSE_PROFILES=django,lotus,cops      → toate
 #
@@ -50,6 +50,9 @@ services:
       - --certificatesresolvers.myresolver.acme.dnschallenge.provider=duckdns
       - --certificatesresolvers.myresolver.acme.email=x3m444@gmail.com
       - --certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json
+      # Wildcard cert cerut la nivel Traefik — independent de serviciile active
+      - --certificatesresolvers.myresolver.acme.domains[0].main=incercari.duckdns.org
+      - "--certificatesresolvers.myresolver.acme.domains[0].sans=*.incercari.duckdns.org"
     ports:
       - "80:80"
       - "443:443"
@@ -104,7 +107,7 @@ services:
     container_name: duckdns
     restart: unless-stopped
     environment:
-      - SUBDOMAINS=incercari
+      - SUBDOMAINS=incercari,carti,lectura
       - TOKEN=${DUCKDNS_TOKEN}
       - LOG_FILE=false
     security_opt:
@@ -160,7 +163,7 @@ services:
         max-file: "3"
     labels:
       - traefik.enable=true
-      - "traefik.http.routers.stoc.rule=Host(`streamstoc.incercari.duckdns.org`)"
+      - "traefik.http.routers.stoc.rule=Host(`stoc.incercari.duckdns.org`)"
       - traefik.http.routers.stoc.entrypoints=websecure
       - traefik.http.routers.stoc.tls.certresolver=myresolver
       - "traefik.http.routers.stoc.tls.domains[0].main=incercari.duckdns.org"
@@ -209,7 +212,7 @@ services:
         max-file: "3"
     labels:
       - traefik.enable=true
-      - "traefik.http.routers.stoc.rule=Host(`streamstoc.incercari.duckdns.org`)"
+      - "traefik.http.routers.stoc.rule=Host(`stoc.incercari.duckdns.org`)"
       - traefik.http.routers.stoc.entrypoints=websecure
       - traefik.http.routers.stoc.tls.certresolver=myresolver
       - "traefik.http.routers.stoc.tls.domains[0].main=incercari.duckdns.org"
@@ -267,7 +270,7 @@ services:
   # ---------------------------------------------------------------------------
   # CALIBRE-WEB — interfață web completă pentru biblioteca Calibre
   # Activă când COMPOSE_PROFILES include "calibre"
-  # Subdomain: lectura.incercari.duckdns.org
+  # Subdomain: lectura.duckdns.org
   # Primă pornire: setează calea /books în UI → /books
   # ---------------------------------------------------------------------------
   calibre-web:
@@ -308,7 +311,7 @@ services:
         max-file: "3"
     labels:
       - traefik.enable=true
-      - "traefik.http.routers.calibre.rule=Host(`lectura.incercari.duckdns.org`)"
+      - "traefik.http.routers.calibre.rule=Host(`lectura.duckdns.org`)"
       - traefik.http.routers.calibre.entrypoints=websecure
       - traefik.http.routers.calibre.tls.certresolver=myresolver
       - traefik.http.services.calibre.loadbalancer.server.port=8083
@@ -317,7 +320,7 @@ services:
   # ---------------------------------------------------------------------------
   # COPS — OPDS + web browser PHP, ultra-ușor (~80MB RAM)
   # Activă când COMPOSE_PROFILES include "cops"
-  # Subdomain: carti.incercari.duckdns.org
+  # Subdomain: carti.duckdns.org
   # Config: docker-configs/cops/config/config_local.php (generat automat)
   # ---------------------------------------------------------------------------
   cops:
@@ -354,7 +357,7 @@ services:
         max-file: "2"
     labels:
       - traefik.enable=true
-      - "traefik.http.routers.cops.rule=Host(`carti.incercari.duckdns.org`)"
+      - "traefik.http.routers.cops.rule=Host(`carti.duckdns.org`)"
       - traefik.http.routers.cops.entrypoints=websecure
       - traefik.http.routers.cops.tls.certresolver=myresolver
       - traefik.http.services.cops.loadbalancer.server.port=80
