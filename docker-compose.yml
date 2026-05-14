@@ -217,7 +217,7 @@ services:
   # ---------------------------------------------------------------------------
   # CALIBRE-WEB — interfață web completă pentru biblioteca Calibre
   # Activă când COMPOSE_PROFILES include "calibre"
-  # Subdomain: calibre.incercari.duckdns.org
+  # Subdomain: lectura.incercari.duckdns.org
   # Primă pornire: setează calea /books în UI → /books
   # ---------------------------------------------------------------------------
   calibre-web:
@@ -258,7 +258,7 @@ services:
         max-file: "3"
     labels:
       - traefik.enable=true
-      - "traefik.http.routers.calibre.rule=Host(`calibre.incercari.duckdns.org`)"
+      - "traefik.http.routers.calibre.rule=Host(`lectura.incercari.duckdns.org`)"
       - traefik.http.routers.calibre.entrypoints=websecure
       - traefik.http.routers.calibre.tls.certresolver=myresolver
       - traefik.http.services.calibre.loadbalancer.server.port=8083
@@ -267,7 +267,7 @@ services:
   # ---------------------------------------------------------------------------
   # COPS — OPDS + web browser PHP, ultra-ușor (~80MB RAM)
   # Activă când COMPOSE_PROFILES include "cops"
-  # Subdomain: books.incercari.duckdns.org
+  # Subdomain: carti.incercari.duckdns.org
   # Config: docker-configs/cops/config/config_local.php (generat automat)
   # ---------------------------------------------------------------------------
   cops:
@@ -304,7 +304,7 @@ services:
         max-file: "2"
     labels:
       - traefik.enable=true
-      - "traefik.http.routers.cops.rule=Host(`books.incercari.duckdns.org`)"
+      - "traefik.http.routers.cops.rule=Host(`carti.incercari.duckdns.org`)"
       - traefik.http.routers.cops.entrypoints=websecure
       - traefik.http.routers.cops.tls.certresolver=myresolver
       - traefik.http.services.cops.loadbalancer.server.port=80
