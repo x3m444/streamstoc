@@ -1,6 +1,40 @@
-version: '3.9'
-
 services:
+  traefik:
+    image: traefik:v2.11
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - --api.insecure=true
+      - --log.level=DEBUG
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=traefik
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.myresolver.acme.dnschallenge=true
+      - --certificatesresolvers.myresolver.acme.dnschallenge.provider=duckdns
+      - --certificatesresolvers.myresolver.acme.email=x3m444@gmail.com
+      - --certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json
+    ports:
+      - 80:80
+      - 443:443
+    environment:
+      - DUCKDNS_TOKEN=${DUCKDNS_TOKEN}
+    volumes:
+      - ./letsencrypt:/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - default
+      - traefik
+
+  duckdns:
+    image: lscr.io/linuxserver/duckdns:latest
+    container_name: duckdns
+    restart: unless-stopped
+    environment:
+      - SUBDOMAINS=incercari
+      - TOKEN=8529aea9-0c83-4e75-a8d1-0df290bb5101
+
   web:
     build: .
     container_name: stoc_django
@@ -12,14 +46,13 @@ services:
       - traefik
     labels:
       - traefik.enable=true
-      - "traefik.http.routers.stocdjango.rule=Host(`stocdjango.incercari.duckdns.org`)"
-      - traefik.http.routers.stocdjango.entrypoints=websecure
-      - traefik.http.routers.stocdjango.tls.certresolver=myresolver
-      - "traefik.http.routers.stocdjango.tls.domains[0].main=incercari.duckdns.org"
-      - "traefik.http.routers.stocdjango.tls.domains[0].sans=*.incercari.duckdns.org"
-      - traefik.http.services.stocdjango.loadbalancer.server.port=8000
+      - "traefik.http.routers.stoc.rule=Host(`streamstoc.incercari.duckdns.org`)"
+      - traefik.http.routers.stoc.entrypoints=websecure
+      - traefik.http.routers.stoc.tls.certresolver=myresolver
+      - "traefik.http.routers.stoc.tls.domains[0].main=incercari.duckdns.org"
+      - "traefik.http.routers.stoc.tls.domains[0].sans=*.incercari.duckdns.org"
+      - traefik.http.services.stoc.loadbalancer.server.port=8000
 
 networks:
   traefik:
-    external: true
     name: traefik
