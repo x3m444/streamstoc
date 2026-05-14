@@ -75,9 +75,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'stoc.StocUser'
 
 CSRF_TRUSTED_ORIGINS = [
-    f'http://{host}' for host in ALLOWED_HOSTS if host not in ('*', '')
+    f'https://{host}' for host in ALLOWED_HOSTS if host not in ('*', '')
 ] + [
-    f'http://{host}:8000' for host in ALLOWED_HOSTS if host not in ('*', '')
+    f'http://{host}' for host in ALLOWED_HOSTS if host not in ('*', '')
 ]
 
 LOGIN_URL = '/login/'
