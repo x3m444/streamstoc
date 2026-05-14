@@ -10,7 +10,7 @@
     <div class="row g-2 mb-3">
         <div class="col-6 col-md-3">
             <label class="form-label">Data Expediției</label>
-            <input type="date" name="data_expediere" class="form-control" value="{{ today|date:'Y-m-d' }}">
+            <input type="date" name="data_expediere" id="dataExpediere" class="form-control" value="{{ data_sel|date:'Y-m-d' }}">
         </div>
         <div class="col-6 col-md-4">
             <label class="form-label">Dosar / Destinație</label>
@@ -22,37 +22,60 @@
     </div>
 
     {% if records %}
-    <div class="table-responsive">
-        <table class="cable-table">
-            <thead>
-                <tr>
-                    <th><input type="checkbox" id="selectAll"></th>
-                    <th>Nr Lista</th><th>Locație</th><th>Lungime</th><th>Cabluri</th>
-                </tr>
-            </thead>
-            <tbody>
+    <div class="mb-3">
+        <label class="form-label">Selectează liste ({{ records|length }} disponibile)</label>
+        <select name="selected_ids" id="expeditie-select" multiple placeholder="Caută după nr listă sau locație...">
             {% for r in records %}
-                <tr>
-                    <td><input type="checkbox" name="selected_ids" value="{{ r.id }}"></td>
-                    <td>{{ r.nr_lista }}</td>
-                    <td>{{ r.locatie }}</td>
-                    <td>{{ r.lungime|floatformat:0 }} m</td>
-                    <td>{{ r.nr_cabluri }}</td>
-                </tr>
+            <option value="{{ r.id }}">{{ r.nr_lista }} — {{ r.locatie }} ({{ r.lungime|floatformat:0 }}m / {{ r.nr_cabluri }} cab)</option>
             {% endfor %}
-            </tbody>
-        </table>
+        </select>
     </div>
     {% else %}
     <div class="alert alert-success">🎉 Toate listele de pe Nava 978 au fost trimise!</div>
     {% endif %}
 </form>
+
+<!-- Situație expediții azi -->
+{% if expediate_azi %}
+<hr class="my-3">
+<h6>📊 Situație zi: {{ data_sel|date:"d.m.Y" }}</h6>
+<div class="row g-2 mb-2">
+    <div class="col-4 col-md-3"><div class="summary-card"><div class="label">Liste</div><div class="value">{{ exp_sumar.liste }}</div></div></div>
+    <div class="col-4 col-md-3"><div class="summary-card"><div class="label">Metraj</div><div class="value">{{ exp_sumar.metri }} m</div></div></div>
+    <div class="col-4 col-md-3"><div class="summary-card"><div class="label">Cabluri</div><div class="value">{{ exp_sumar.cabluri }}</div></div></div>
+    <div class="col-12 col-md-3"><div class="summary-card"><div class="label">Dosare</div><div class="value" style="font-size:14px; word-break:break-word;">{{ exp_sumar.dosare }}</div></div></div>
+</div>
+<a href="{% url 'stoc:export_borderou' %}?data={{ data_sel|date:'Y-m-d' }}" class="btn btn-sm btn-outline-success mb-2">⬇ Borderou Excel</a>
+<div class="table-responsive">
+    <table class="cable-table">
+        <thead><tr><th>Nr Lista</th><th>Locație</th><th>Lungime</th><th>Cabluri</th><th>Dosar</th></tr></thead>
+        <tbody>
+        {% for r in expediate_azi %}
+        <tr>
+            <td>{{ r.nr_lista }}</td><td>{{ r.locatie }}</td>
+            <td>{{ r.lungime|floatformat:0 }} m</td><td>{{ r.nr_cabluri }}</td>
+            <td>{{ r.dosar }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}
 <script>
-document.getElementById('selectAll').addEventListener('change', function() {
-    document.querySelectorAll('input[name="selected_ids"]').forEach(cb => cb.checked = this.checked);
+document.getElementById('dataExpediere')?.addEventListener('change', function() {
+    const url = new URL(window.location.href);
+    url.searchParams.set('data', this.value);
+    window.location.href = url.toString();
+});
+</script>
+<script>
+new TomSelect('#expeditie-select', {
+    plugins: ['remove_button'],
+    placeholder: 'Caută după nr listă sau locație...',
+    maxOptions: null,
 });
 </script>
 {% endblock %}

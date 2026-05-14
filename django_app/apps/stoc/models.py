@@ -1,4 +1,17 @@
 from django.db import models
+from django.contrib.auth.models import AbstractUser
+
+
+class StocUser(AbstractUser):
+    is_readonly = models.BooleanField(default=False, verbose_name='Read-only')
+
+    class Meta:
+        db_table = 'stoc_users'
+        verbose_name = 'Utilizator'
+        verbose_name_plural = 'Utilizatori'
+
+    def __str__(self):
+        return self.username
 
 
 class Cable(models.Model):

@@ -41,6 +41,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'apps.stoc.context_processors.active_nava',
             ],
         },
     },
@@ -70,6 +71,14 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+AUTH_USER_MODEL = 'stoc.StocUser'
+
+CSRF_TRUSTED_ORIGINS = [
+    f'http://{host}' for host in ALLOWED_HOSTS if host not in ('*', '')
+] + [
+    f'http://{host}:8000' for host in ALLOWED_HOSTS if host not in ('*', '')
+]
 
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'

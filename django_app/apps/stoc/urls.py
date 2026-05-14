@@ -9,4 +9,6 @@ urlpatterns = [
     path('rapoarte/', views.rapoarte, name='rapoarte'),
     path('superviz/', views.superviz, name='superviz'),
     path('export/<str:tip>/', views.export_excel, name='export_excel'),
+    path('set-nava/', views.set_nava, name='set_nava'),
+    path('borderou/', views.export_borderou, name='export_borderou'),
 ]
