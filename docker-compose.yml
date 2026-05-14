@@ -48,6 +48,7 @@ services:
       # Let's Encrypt via DuckDNS
       - --certificatesresolvers.myresolver.acme.dnschallenge=true
       - --certificatesresolvers.myresolver.acme.dnschallenge.provider=duckdns
+      - --certificatesresolvers.myresolver.acme.dnschallenge.disablepropagationcheck=true
       - --certificatesresolvers.myresolver.acme.email=x3m444@gmail.com
       - --certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json
     ports:
