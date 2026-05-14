@@ -155,6 +155,8 @@ def show_super_visualization():
         rm_cid = None
         for cid in list(st.session_state.sv_cond_ids):
             field = st.session_state.get(f"cf_{cid}", ALL_FIELDS[0])
+            if field not in ALL_FIELDS:
+                field = ALL_FIELDS[0]
             ft    = FIELD_TYPES.get(field, "text")
             ops   = OPERATORS[ft]
             cur_op = st.session_state.get(f"co_{cid}", ops[0])
@@ -204,8 +206,11 @@ def show_super_visualization():
         for sid in list(st.session_state.sv_sort_ids):
             s1, s2, s3 = st.columns([2.5, 1.5, 0.5])
             with s1:
+                sf_val = st.session_state.get(f"sf_{sid}", "Nr Lista")
+                if sf_val not in ALL_FIELDS:
+                    sf_val = "Nr Lista"
                 st.selectbox("Câmp sort", ALL_FIELDS,
-                             index=ALL_FIELDS.index(st.session_state.get(f"sf_{sid}", "Nr Lista")),
+                             index=ALL_FIELDS.index(sf_val),
                              key=f"sf_{sid}", label_visibility="collapsed")
             with s2:
                 st.selectbox("Dir", ["ASC ↑", "DESC ↓"],
