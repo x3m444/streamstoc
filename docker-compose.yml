@@ -325,9 +325,13 @@ services:
   # ---------------------------------------------------------------------------
   cops:
     profiles: [cops]
-    image: alexandreperez/cops:latest
+    image: lscr.io/linuxserver/cops:latest
     container_name: cops
     restart: unless-stopped
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=Europe/Bucharest
     volumes:
       - ./docker-configs/cops/config:/var/www/html/config
       - ${BOOKS_PATH:-./docker-configs/calibre-web/books}:/books:ro
