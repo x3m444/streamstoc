@@ -17,8 +17,7 @@ services:
           if self.path == '/ready':
             self.send_response(200); self.end_headers(); self.wfile.write(b'{\"status\":\"ready\",\"role\":\"secondary\"}')
           else:
-            self.send_response(404)
-            self.end_headers()
+            self.send_response(404); self.end_headers()
         def log_message(self, *a): pass
       http.server.HTTPServer(('0.0.0.0', 8888), H).serve_forever()
       "
