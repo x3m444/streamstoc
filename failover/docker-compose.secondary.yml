@@ -15,9 +15,7 @@ services:
       class H(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
           if self.path == '/ready':
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(b'{\"status\":\"ready\",\"role\":\"secondary\"}')
+            self.send_response(200); self.end_headers(); self.wfile.write(b'{\"status\":\"ready\",\"role\":\"secondary\"}')
           else:
             self.send_response(404)
             self.end_headers()
