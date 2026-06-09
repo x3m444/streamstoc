@@ -1,0 +1,156 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: django-stoc-secrets
+  namespace: default
+type: Opaque
+stringData:
+  SECRET_KEY: "change-this-to-secure-random-key-generate-with-openssl"
+  DB_NAME: "stoc_db"
+  DB_USER: "postgres"
+  DB_PASS: "change-db-password"
+  DB_HOST: "postgres"
+  DB_PORT: "5432"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: django-stoc
+  namespace: default
+  labels:
+    app: django-stoc
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: django-stoc
+  template:
+    metadata:
+      labels:
+        app: django-stoc
+    spec:
+      containers:
+      - name: django
+        image: your-docker-username/stoc-django:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: django-stoc-secrets
+              key: SECRET_KEY
+        - name: DEBUG
+          value: "False"
+        - name: ALLOWED_HOSTS
+          value: "stoc.kduner.duckdns.org,localhost"
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: django-stoc-secrets
+              key: DB_NAME
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: django-stoc-secrets
+              key: DB_USER
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: django-stoc-secrets
+              key: DB_PASS
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: django-stoc-secrets
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            secretKeyRef:
+              name: django-stoc-secrets
+              key: DB_PORT
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health/
+            port: 8000
+          initialDelaySeconds: 40
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health/
+            port: 8000
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        volumeMounts:
+        - name: static
+          mountPath: /app/staticfiles
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: static
+        emptyDir: {}
+      - name: tmp
+        emptyDir:
+          sizeLimit: 64Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: django-stoc-svc
+  namespace: default
+  labels:
+    app: django-stoc
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8000
+    targetPort: 8000
+    name: http
+  selector:
+    app: django-stoc
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: django-stoc-ingress
+  namespace: default
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: traefik
+  tls:
+  - hosts:
+    - stoc.kduner.duckdns.org
+    secretName: django-stoc-tls
+  rules:
+  - host: stoc.kduner.duckdns.org
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: django-stoc-svc
+            port:
+              number: 8000

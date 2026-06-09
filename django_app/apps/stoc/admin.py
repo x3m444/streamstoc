@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import StocUser
+from .models import StocUser, UserPreferences
 
 
 @admin.register(StocUser)
@@ -12,4 +12,17 @@ class StocUserAdmin(UserAdmin):
     )
     add_fieldsets = UserAdmin.add_fieldsets + (
         ('Permisiuni stoc', {'fields': ('is_readonly',)}),
+    )
+
+
+@admin.register(UserPreferences)
+class UserPreferencesAdmin(admin.ModelAdmin):
+    list_display = ('user', 'default_nava', 'default_tragator', 'default_data')
+    list_filter = ('default_nava',)
+    search_fields = ('user__username',)
+    readonly_fields = ('default_data',)
+    fieldsets = (
+        ('Utilizator', {'fields': ('user',)}),
+        ('Preferințe', {'fields': ('default_nava', 'default_tragator')}),
+        ('Info', {'fields': ('default_data',), 'classes': ('collapse',)}),
     )

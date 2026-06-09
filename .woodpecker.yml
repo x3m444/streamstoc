@@ -1,0 +1,61 @@
+pipeline:
+  # Build Docker image
+  build:
+    image: woodpecker/plugin-docker-buildx:latest
+    privileged: true
+    settings:
+      registry: docker.io
+      username:
+        from_secret: docker_username
+      password:
+        from_secret: docker_password
+      repo: ${CI_REPO_OWNER}/stoc-django
+      tags:
+        - latest
+        - ${CI_COMMIT_SHA:0:7}
+      platforms: linux/arm64,linux/amd64
+      dockerfile: django_app/Dockerfile
+      context: ./django_app
+    when:
+      branch: main
+      event: push
+
+  # Test image (optional — run migrations, basic health check)
+  test:
+    image: docker.io/${CI_REPO_OWNER}/stoc-django:${CI_COMMIT_SHA:0:7}
+    commands:
+      - python manage.py migrate --noinput --dry-run || true
+      - python manage.py check
+    when:
+      branch: main
+      event: push
+
+  # Update Kubernetes manifest with new image tag
+  update-manifest:
+    image: alpine/git:latest
+    secrets:
+      - git_username
+      - git_token
+    commands:
+      - git clone https://${GIT_USERNAME}:${GIT_TOKEN}@gitea.kduner.duckdns.org/${CI_REPO_OWNER}/${CI_REPO_NAME}.git repo
+      - cd repo
+      - sed -i "s|stoc-django:.*|stoc-django:${CI_COMMIT_SHA:0:7}|" k8s/deployment.yaml
+      - git config user.email "ci@woodpecker.local"
+      - git config user.name "Woodpecker CI"
+      - git add k8s/deployment.yaml
+      - git commit -m "CI: Update image tag to ${CI_COMMIT_SHA:0:7}}"
+      - git push origin main
+    when:
+      branch: main
+      event: push
+    depends_on:
+      - build
+
+  # Notify (optional — Gotify, Slack, etc.)
+  notify:
+    image: alpine:latest
+    commands:
+      - echo "Deployment triggered for ${CI_COMMIT_SHA:0:7}"
+    when:
+      branch: main
+      event: [push, success]

@@ -14,6 +14,22 @@ class StocUser(AbstractUser):
         return self.username
 
 
+class UserPreferences(models.Model):
+    """Per-user preferences — persistent across sessions."""
+    user = models.OneToOneField(StocUser, on_delete=models.CASCADE, related_name='preferences')
+    default_nava = models.IntegerField(default=978, verbose_name='Navă implicită')
+    default_tragator = models.CharField(max_length=100, default='COSTEL', verbose_name='Tractator implicit')
+    default_data = models.DateField(auto_now=True, verbose_name='Data actualizată')
+    
+    class Meta:
+        db_table = 'stoc_user_preferences'
+        verbose_name = 'Preferințe utilizator'
+        verbose_name_plural = 'Preferințe utilizatori'
+    
+    def __str__(self):
+        return f"Preferințe {self.user.username}"
+
+
 class Cable(models.Model):
     id = models.AutoField(primary_key=True, db_column='ID')
     nr_lista = models.TextField(null=True, blank=True, db_column='Nr Lista')
