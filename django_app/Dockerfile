@@ -10,7 +10,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --user --no-cache-dir -r requirements.txt
 
----
 FROM python:3.11-slim
 
 WORKDIR /app
