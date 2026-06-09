@@ -8,6 +8,7 @@ from io import BytesIO
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+from .models import UserPreferences
 
 DEFAULT_SHIP = 978
 DEFAULT_TRAGATOR = "COSTEL"
@@ -26,6 +27,14 @@ def _full_access_required(view_func):
             return redirect('stoc:rapoarte')
         return view_func(request, *args, **kwargs)
     return wrapper
+
+
+def _get_user_prefs(user):
+    """Fetch sau creeaza preferințele utilizatorului."""
+    if not user.is_authenticated:
+        return None
+    prefs, created = UserPreferences.objects.get_or_create(user=user)
+    return prefs
 
 ALL_FIELDS = [
     "Nava", "Nr Lista", "ID Lista", "Locatie", "Lungime",
@@ -176,27 +185,24 @@ def _make_excel(rows, headers, title, summary=None, orientation='auto'):
 def index(request):
     if getattr(request.user, 'is_readonly', False):
         return redirect('stoc:rapoarte')
-    nava = int(request.session.get('last_nava', DEFAULT_SHIP))
-    tragator = request.session.get('last_tragator', DEFAULT_TRAGATOR)
+    
+    # Get user preferences from DB
+    prefs = _get_user_prefs(request.user)
+    nava = prefs.default_nava if prefs else DEFAULT_SHIP
+    tragator = prefs.default_tragator if prefs else DEFAULT_TRAGATOR
     today = date.today()
-    # Auto-reset la today dacă data din sesiune e mai veche
-    stored = request.session.get('last_data', str(today))
-    try:
-        stored_date = date.fromisoformat(stored)
-    except ValueError:
-        stored_date = today
-    if stored_date < today:
-        stored_date = today
-        request.session['last_data'] = str(today)
-    last_data = str(stored_date)
+    last_data = str(today)
 
     if request.method == 'POST':
         action = request.POST.get('action', 'save')
 
         if action == 'settings':
-            request.session['last_nava'] = int(request.POST.get('nava', DEFAULT_SHIP))
-            request.session['last_tragator'] = request.POST.get('tragator', DEFAULT_TRAGATOR)
-            request.session['last_data'] = request.POST.get('data_default', str(today))
+            # Update preferences in DB
+            if prefs:
+                prefs.default_nava = int(request.POST.get('nava', DEFAULT_SHIP))
+                prefs.default_tragator = request.POST.get('tragator', DEFAULT_TRAGATOR)
+                prefs.save()
+                messages.success(request, "Preferințele au fost salvate!")
             return redirect('stoc:index')
 
         nr_lista = request.POST.get('nr_lista', '').strip()
@@ -262,7 +268,11 @@ def index(request):
 def set_nava(request):
     if request.method == 'POST':
         try:
-            request.session['last_nava'] = int(request.POST.get('nava', 978))
+            nava = int(request.POST.get('nava', 978))
+            prefs = _get_user_prefs(request.user)
+            if prefs:
+                prefs.default_nava = nava
+                prefs.save()
         except ValueError:
             pass
     return redirect(request.POST.get('next', '/'))
@@ -270,7 +280,8 @@ def set_nava(request):
 
 @_full_access_required
 def expeditie(request):
-    nava = int(request.session.get('last_nava', DEFAULT_SHIP))
+    prefs = _get_user_prefs(request.user)
+    nava = prefs.default_nava if prefs else DEFAULT_SHIP
     today = date.today()
 
     if request.method == 'POST':
@@ -339,7 +350,8 @@ def expeditie(request):
 
 @login_required
 def rapoarte(request):
-    nava = int(request.session.get('last_nava', DEFAULT_SHIP))
+    prefs = _get_user_prefs(request.user)
+    nava = prefs.default_nava if prefs else DEFAULT_SHIP
     with connection.cursor() as cursor:
         today = date.today()
         cursor.execute('''
@@ -473,6 +485,7 @@ def _build_query(conditions, vis_cols, sort_field, sort_dir):
 
 @_full_access_required
 def superviz(request):
+    prefs = _get_user_prefs(request.user)
     DEFAULT_COLS = ["Nr Lista", "ID Lista", "Lungime", "Nr Cabluri", "Data"]
 
     if request.method == 'POST':
@@ -552,7 +565,7 @@ def superviz(request):
         i += 1
 
     if not conditions:
-        nava = int(request.session.get('last_nava', DEFAULT_SHIP))
+        nava = prefs.default_nava if prefs else DEFAULT_SHIP
         conditions = [{'field': 'Nava', 'op': '=', 'val': str(nava)}]
 
     vis_cols_param = request.GET.get('cols', '')
@@ -598,7 +611,8 @@ def superviz(request):
 
 @_full_access_required
 def export_borderou(request):
-    nava = int(request.session.get('last_nava', DEFAULT_SHIP))
+    prefs = _get_user_prefs(request.user)
+    nava = prefs.default_nava if prefs else DEFAULT_SHIP
     data_exp = request.GET.get('data', str(date.today()))
 
     with connection.cursor() as cursor:
@@ -630,7 +644,8 @@ def export_borderou(request):
 
 @login_required
 def export_excel(request, tip):
-    nava = int(request.session.get('last_nava', DEFAULT_SHIP))
+    prefs = _get_user_prefs(request.user)
+    nava = prefs.default_nava if prefs else DEFAULT_SHIP
     tip_map = {
         'azi':    (f'Raport_Azi_{nava}',    f'SELECT "Nr Lista","Locatie","Lungime","Nr Cabluri" FROM list963 WHERE "Data" = %s AND "Nava"=%s ORDER BY "Locatie","Nr Lista"', ['Nr Lista','Locatie','Lungime','Nr Cabluri']),
         'nava':   (f'Registru_{nava}',       f'SELECT "Nr Lista","ID Lista","Locatie","Lungime","Nr Cabluri","Data","Tragator","Trimis","Dosar" FROM list963 WHERE "Nava"=%s ORDER BY "Nr Lista"', ['Nr Lista','ID Lista','Locatie','Lungime','Nr Cabluri','Data','Tragator','Trimis','Dosar']),
