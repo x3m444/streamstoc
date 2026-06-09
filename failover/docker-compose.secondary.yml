@@ -10,17 +10,13 @@ services:
     container_name: secondary_health
     restart: unless-stopped
     command: >
-      python -c "
-      import http.server
+      python3 -c "import http.server;
       class H(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
-          if self.path == '/ready':
-            self.send_response(200); self.end_headers(); self.wfile.write(b'{\"status\":\"ready\",\"role\":\"secondary\"}')
-          else:
-            self.send_response(404); self.end_headers()
+          if self.path == '/ready': self.send_response(200); self.end_headers(); self.wfile.write(b'{\"status\":\"ready\",\"role\":\"secondary\"}')
+          else: self.send_response(404); self.end_headers()
         def log_message(self, *a): pass
-      http.server.HTTPServer(('0.0.0.0', 8888), H).serve_forever()
-      "
+      http.server.HTTPServer(('0.0.0.0', 8888), H).serve_forever()"
     ports:
       - "8888:8888"
     deploy:
