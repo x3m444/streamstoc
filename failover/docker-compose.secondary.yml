@@ -9,7 +9,7 @@ services:
     image: python:3.11-alpine
     container_name: secondary_health
     restart: unless-stopped
-    command: >
+    command: |
       python -c "
       import http.server
       class H(http.server.BaseHTTPRequestHandler):
