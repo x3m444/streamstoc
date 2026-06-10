@@ -4,6 +4,11 @@
 
 set -euo pipefail
 
+# Load .env
+if [[ -f .env ]]; then
+    source .env
+fi
+
 REPO_DIR="${REPO_DIR:-/opt/stoc}"
 SERVICE_USER="${SERVICE_USER:-ubuntu}"
 
