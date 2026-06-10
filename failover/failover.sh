@@ -79,6 +79,10 @@ main() {
                 log "=== FAILBACK: reactivare server primar ==="
                 if update_duckdns "primary"; then
                     notify "FAILBACK" "Primar online, DNS reîndreptat spre $PRIMARY_IP"
+                    # Stop Docker services on secondary
+                    cd /home/ubuntu/streamstoc
+                    docker compose down
+                    log "Docker services stopped pe secundar."
                     save_state "PRIMARY_ACTIVE" 0 0
                 fi
             else
@@ -96,6 +100,10 @@ main() {
                 log "=== FAILOVER: activare server secundar ==="
                 if update_duckdns "secondary"; then
                     notify "FAILOVER" "Primar căzut după $FAIL_THRESHOLD eșecuri. DNS → secundar"
+                    # Auto-start Docker services on secondary
+                    cd /home/ubuntu/streamstoc
+                    docker compose up -d --remove-orphans
+                    log "Docker services started pe secundar."
                     save_state "SECONDARY_ACTIVE" 0 0
                 fi
             else
@@ -106,10 +114,5 @@ main() {
         fi
     fi
 }
-
-# Încarcă variabilele din .env
-#set -a
-#source /home/ubuntu/streamstoc/.env
-#set +a
 
 main
