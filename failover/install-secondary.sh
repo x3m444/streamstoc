@@ -9,7 +9,7 @@ if [[ -f .env ]]; then
     source .env
 fi
 
-REPO_DIR="${REPO_DIR:-/opt/stoc}"
+REPO_DIR="${REPO_DIR:-/home/ubuntu/streamstoc}"
 SERVICE_USER="${SERVICE_USER:-ubuntu}"
 
 echo "=== Configurare server secundar failover ==="
@@ -18,10 +18,12 @@ echo "=== Configurare server secundar failover ==="
 if [[ -d "$REPO_DIR/.git" ]]; then
     echo "[1/6] Actualizare repo..."
     cd "$REPO_DIR" && git pull
+    git submodule update --init --recursive
 else
     echo "[1/6] Clonare repo..."
     git clone "${GIT_REPO:?GIT_REPO nesetat}" "$REPO_DIR"
     cd "$REPO_DIR"
+    git submodule update --init --recursive
 fi
 
 # 2. Copiem .env și îl completăm cu variabilele secundare
